@@ -1,47 +1,20 @@
-import { useEffect, useRef } from "react";
-import { io } from "socket.io-client";
-import api from "../api/axiosConfig";
-import { probeBackend } from "../utils/probeBackend";
+import { useEffect, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
+
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
 
 export const useSocket = () => {
-  const socketRef = useRef(null);
+  const socketRef  = useRef(null);
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    async function init() {
-      try {
-        const ok = await probeBackend();
-        if (!ok) {
-          socketRef.current = {
-            connected: false,
-            on: () => {},
-            off: () => {},
-            disconnect: () => {},
-          };
-          return;
-        }
-        if (!mounted) return;
-        socketRef.current = io("http://localhost:3000");
-      } catch (err) {
-        socketRef.current = {
-          connected: false,
-          on: () => {},
-          off: () => {},
-          disconnect: () => {},
-        };
-      }
-    }
-    init();
+    socketRef.current = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
 
-    return () => {
-      mounted = false;
-      if (socketRef.current && socketRef.current.disconnect) {
-        try {
-          socketRef.current.disconnect();
-        } catch (e) {}
-      }
-    };
+    socketRef.current.on('connect',    () => setConnected(true));
+    socketRef.current.on('disconnect', () => setConnected(false));
+
+    return () => { socketRef.current?.disconnect(); };
   }, []);
 
-  return socketRef.current;
+  return { socket: socketRef.current, connected };
 };
