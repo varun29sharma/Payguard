@@ -12,13 +12,13 @@ import api from '../api/axiosConfig';
 import { getSocket } from '../api/socket';
 
 const RULE_LABELS = {
-  VELOCITY_RULE:           { label: 'Velocity',           color: 'text-red-400    bg-red-500/10    border-red-500/20'    },
-  ENUMERATION_ATTACK_RULE: { label: 'Enumeration Attack', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
-  AMOUNT_THRESHOLD_RULE:   { label: 'Amount Threshold',   color: 'text-amber-400  bg-amber-500/10  border-amber-500/20'  },
-  GEOGRAPHIC_ANOMALY_RULE: { label: 'Geo Anomaly',        color: 'text-blue-400   bg-blue-500/10   border-blue-500/20'   },
-  NEW_DEVICE_RULE:         { label: 'New Device',         color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
-  NIGHT_OWL_RULE:          { label: 'Night Owl',          color: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20' },
-  BLOCK_LIST:              { label: 'Block List',         color: 'text-red-300    bg-red-500/15    border-red-500/30'    },
+  VELOCITY_RULE:           { label: 'VELOCITY_CHK',     color: 'text-red-400 bg-red-500/10 border-red-500'    },
+  ENUMERATION_ATTACK_RULE: { label: 'ENUM_ATTACK',      color: 'text-purple-400 bg-purple-500/10 border-purple-500' },
+  AMOUNT_THRESHOLD_RULE:   { label: 'AMT_THRESH',       color: 'text-amber-400 bg-amber-500/10 border-amber-500'  },
+  GEOGRAPHIC_ANOMALY_RULE: { label: 'GEO_ANOMALY',      color: 'text-blue-400 bg-blue-500/10 border-blue-500'   },
+  NEW_DEVICE_RULE:         { label: 'NEW_DEVICE',       color: 'text-orange-400 bg-orange-500/10 border-orange-500' },
+  NIGHT_OWL_RULE:          { label: 'NIGHT_OWL',        color: 'text-brand bg-brand-dim border-brand' },
+  BLOCK_LIST:              { label: 'BLOCK_LST_HIT',    color: 'text-red-500 bg-red-500/20 border-red-500 font-bold'    },
 };
 
 function AlertCard({ alert, onUpdate }) {
@@ -32,9 +32,9 @@ function AlertCard({ alert, onUpdate }) {
   const txn = alert.transaction;
   const isOpen = alert.status === 'open';
 
-  const scoreColor = alert.fraudScore >= 70 ? 'border-l-red-500'
-                   : alert.fraudScore >= 40 ? 'border-l-amber-500'
-                   : 'border-l-green-500';
+  const scoreColor = alert.fraudScore >= 70 ? 'border-red-500'
+                   : alert.fraudScore >= 40 ? 'border-amber-500'
+                   : 'border-brand';
 
   const act = async (action, extra = {}) => {
     setLoading(true);
@@ -49,12 +49,6 @@ function AlertCard({ alert, onUpdate }) {
         setShowEscModal(false);
       }
       if (res?.data?.success) onUpdate(alert._id, action, res.data.data);
-      if (action === 'block_user' || action === 'block_device') {
-        const { transactionsRejected = 0, alertsResolved = 0 } = res?.data?.data || {};
-        if (transactionsRejected || alertsResolved) {
-          console.info(`Block cascaded: ${transactionsRejected} transaction(s) rejected, ${alertsResolved} alert(s) resolved.`);
-        }
-      }
     } catch (err) {
       console.error(err.response?.data?.message || err.message);
     } finally {
@@ -77,151 +71,112 @@ function AlertCard({ alert, onUpdate }) {
   };
 
   return (
-    <div className={`bg-bg-card border border-border-dim border-l-4 ${scoreColor} rounded-xl overflow-hidden`}>
+    <div className={`pixel-box border-2 ${scoreColor} relative overflow-hidden mb-4`}>
+      {/* Tape mark visual */}
+      <div className={`absolute top-0 right-0 w-12 h-12 bg-bg-card border-b-2 border-l-2 ${scoreColor} flex items-center justify-center font-vt text-xl font-bold`}>
+        !
+      </div>
+      
       <div className="p-5">
-        {/* Top row */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap mb-1.5">
-              <span className="text-sm font-bold text-text-pri font-mono">{alert.userId}</span>
-              <StatusBadge status={alert.status} />
-              <FraudScore score={alert.fraudScore} showBar />
-            </div>
-            <div className="flex flex-wrap gap-3 text-xs text-text-muted">
-              {alert.amount && (
-                <span className="flex items-center gap-1">
-                  <DollarSign size={11} />
-                  ₹{Number(alert.amount).toLocaleString()}
-                </span>
-              )}
-              {alert.merchantId && (
-                <span className="flex items-center gap-1">
-                  <Cpu size={11} />
-                  {alert.merchantId}
-                </span>
-              )}
-              {alert.location?.city && (
-                <span className="flex items-center gap-1">
-                  <MapPin size={11} />
-                  {alert.location.city}
-                </span>
-              )}
-              <span className="flex items-center gap-1">
-                <Clock size={11} />
-                {new Date(alert.createdAt).toLocaleString()}
-              </span>
-            </div>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl font-vt text-text-pri tracking-widest">ID:{alert.userId}</h3>
+            <StatusBadge status={alert.status} />
+            <FraudScore score={alert.fraudScore} />
+          </div>
+          
+          <div className="flex flex-wrap gap-4 text-xs font-mono text-text-sec bg-bg-secondary p-2 border border-border-dim w-fit">
+            {alert.amount && <span className="text-brand">AMT: ₹{Number(alert.amount).toLocaleString()}</span>}
+            {alert.merchantId && <span>MERCH: {alert.merchantId}</span>}
+            {alert.location?.city && <span>LOC: {alert.location.city}</span>}
+            <span>TIME: {new Date(alert.createdAt).toLocaleTimeString()}</span>
           </div>
         </div>
 
-        {/* Rules triggered */}
+        {/* Rules */}
         {alert.rulesTriggered?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
+          <div className="mt-4 flex flex-wrap gap-2">
             {alert.rulesTriggered.map((r, i) => {
-              const meta = RULE_LABELS[r.ruleName] || { label: r.ruleName, color: 'text-slate-400 bg-slate-500/10 border-slate-500/20' };
+              const meta = RULE_LABELS[r.ruleName] || { label: r.ruleName, color: 'text-text-sec border-text-muted bg-bg-primary' };
               return (
-                <div key={i} className={`text-[10px] px-2 py-1 rounded border flex items-center gap-1.5 ${meta.color}`}>
-                  <span className="font-semibold">{meta.label}</span>
-                  <span className="opacity-60">score {r.score}</span>
-                  {r.reason && <span className="opacity-50 hidden md:inline">· {r.reason}</span>}
+                <div key={i} className={`text-[10px] px-2 py-1 border-2 font-pixel tracking-widest flex items-center gap-2 ${meta.color}`}>
+                  <span>{meta.label}</span>
+                  <span className="opacity-70 font-mono">SCR:{r.score}</span>
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* Action buttons — only for open alerts */}
-        {isOpen ? (
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => act('resolve')} disabled={loading}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg hover:bg-green-500/15 transition-all disabled:opacity-50">
-              <CheckCircle size={12} />
-              Resolve
-            </button>
-            <button onClick={() => act('false_positive')} disabled={loading}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-border-dim text-text-muted rounded-lg hover:border-border-mid transition-all disabled:opacity-50">
-              <XCircle size={12} />
-              False Positive
-            </button>
-            <button onClick={() => act('block_user', { reason: `High fraud score: ${alert.fraudScore}` })} disabled={loading}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/15 transition-all disabled:opacity-50">
-              <UserX size={12} />
-              Block User
-            </button>
-            {alert.deviceId && alert.deviceId !== 'unknown' && (
-              <button onClick={() => act('block_device', { reason: `Device associated with fraud score: ${alert.fraudScore}` })} disabled={loading}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-lg hover:bg-orange-500/15 transition-all disabled:opacity-50">
-                <Smartphone size={12} />
-                Block Device
+        {/* Actions */}
+        <div className="mt-5 pt-4 border-t-2 border-border-dim flex flex-wrap gap-3 items-center">
+          {isOpen ? (
+            <>
+              <button onClick={() => act('resolve')} disabled={loading} className="pixel-btn px-3 py-2 flex items-center gap-2 text-green-400 border-green-500/50 hover:bg-green-500/10 text-xs">
+                <CheckCircle size={14} /> CLR_ALERT
               </button>
-            )}
-            <button onClick={() => setShowEscModal(true)} disabled={loading}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-purple-500/10 border border-purple-500/30 text-purple-400 rounded-lg hover:bg-purple-500/15 transition-all disabled:opacity-50">
-              <AlertTriangle size={12} />
-              Escalate to PERC
-            </button>
-            <button onClick={loadTimeline} disabled={loadingTl}
-              className="flex items-center gap-1 text-xs text-text-muted hover:text-text-sec ml-auto transition-all">
-              {loadingTl ? '...' : (expanded ? <ChevronUp size={12}/> : <ChevronDown size={12}/>)}
-              User Timeline
-            </button>
-          </div>
-        ) : (
-          <div className="text-xs text-text-muted">
-            {alert.resolvedBy && `Resolved by ${alert.resolvedBy}`}
-            {alert.escalatedBy && `Escalated by ${alert.escalatedBy}${alert.escalationNotes ? ` — "${alert.escalationNotes}"` : ''}`}
-          </div>
-        )}
+              <button onClick={() => act('false_positive')} disabled={loading} className="pixel-btn px-3 py-2 flex items-center gap-2 text-text-sec text-xs">
+                <XCircle size={14} /> FALSE_POS
+              </button>
+              <button onClick={() => act('block_user', { reason: `Score ${alert.fraudScore}` })} disabled={loading} className="pixel-btn px-3 py-2 flex items-center gap-2 text-red-400 border-red-500/50 hover:bg-red-500/10 text-xs">
+                <UserX size={14} /> BLK_USR
+              </button>
+              {alert.deviceId && alert.deviceId !== 'unknown' && (
+                <button onClick={() => act('block_device', { reason: `Score ${alert.fraudScore}` })} disabled={loading} className="pixel-btn px-3 py-2 flex items-center gap-2 text-orange-400 border-orange-500/50 hover:bg-orange-500/10 text-xs">
+                  <Smartphone size={14} /> BLK_DEV
+                </button>
+              )}
+              <button onClick={() => setShowEscModal(true)} disabled={loading} className="pixel-btn px-3 py-2 flex items-center gap-2 text-purple-400 border-purple-500/50 hover:bg-purple-500/10 text-xs">
+                <AlertTriangle size={14} /> ESCALATE
+              </button>
+            </>
+          ) : (
+            <div className="text-xs font-mono text-text-muted">
+              {alert.resolvedBy && `[RESOLVED_BY: ${alert.resolvedBy}]`}
+              {alert.escalatedBy && `[ESCALATED_BY: ${alert.escalatedBy}]`}
+            </div>
+          )}
+          
+          <button onClick={loadTimeline} disabled={loadingTl} className="pixel-btn px-3 py-2 ml-auto flex items-center gap-2 text-brand border-brand/50 text-xs">
+            {loadingTl ? 'WAIT...' : 'GET_TIMELINE'}
+            {expanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+          </button>
+        </div>
       </div>
 
-      {/* Escalation modal */}
+      {/* Escalate Modal */}
       {showEscModal && (
-        <div className="px-5 pb-4 border-t border-border-dim pt-3 bg-purple-500/5">
-          <div className="text-xs font-semibold text-purple-400 mb-2">Escalate to PERC Investigation</div>
+        <div className="p-4 border-t-2 border-purple-500/50 bg-purple-500/5">
+          <div className="text-sm font-pixel text-purple-400 tracking-widest mb-2">ESCALATION_REASON:</div>
           <textarea
             value={escNotes} onChange={e => setEscNotes(e.target.value)}
-            placeholder="Describe why this is a novel pattern or high-priority threat..."
-            className="w-full bg-bg-primary border border-border-dim rounded-lg px-3 py-2 text-xs text-text-pri placeholder-text-muted focus:border-purple-500/50 focus:outline-none resize-none"
-            rows={3}
+            className="w-full bg-bg-primary border-2 border-purple-500/50 p-3 text-xs font-mono text-text-pri focus:outline-none focus:border-purple-400 resize-none h-20"
+            placeholder="ENTER REASON..."
           />
-          <div className="flex gap-2 mt-2">
-            <button onClick={() => act('escalate')} disabled={loading}
-              className="text-xs px-3 py-1.5 bg-purple-500/20 border border-purple-500/40 text-purple-400 rounded-lg hover:bg-purple-500/25 transition-all">
-              Confirm Escalation
-            </button>
-            <button onClick={() => setShowEscModal(false)}
-              className="text-xs px-3 py-1.5 border border-border-dim text-text-muted rounded-lg">
-              Cancel
-            </button>
+          <div className="flex gap-3 mt-3">
+            <button onClick={() => act('escalate')} disabled={loading} className="pixel-btn px-4 py-2 text-purple-400 border-purple-500 text-xs">CONFIRM</button>
+            <button onClick={() => setShowEscModal(false)} className="pixel-btn px-4 py-2 text-text-sec text-xs">CANCEL</button>
           </div>
         </div>
       )}
 
-      {/* User timeline */}
+      {/* Timeline */}
       {expanded && timeline && (
-        <div className="border-t border-border-dim px-5 py-4 bg-bg-secondary">
-          <div className="text-xs font-semibold text-text-sec mb-3 uppercase tracking-widest">
-            User Timeline — last 24h
+        <div className="border-t-2 border-border-dim bg-bg-secondary p-5">
+          <div className="text-sm font-pixel text-text-sec tracking-widest mb-4">TIMELINE_24H</div>
+          
+          <div className="flex gap-6 mb-4 font-mono text-xs border border-border-dim p-3 bg-bg-card">
+            <div><span className="text-text-muted">TOT_TXN:</span> <span className="text-text-pri">{timeline.summary?.total}</span></div>
+            <div><span className="text-text-muted">FLAGGED:</span> <span className="text-amber-400">{timeline.summary?.flagged}</span></div>
+            <div><span className="text-text-muted">SPENT:</span> <span className="text-brand">₹{timeline.summary?.totalAmount}</span></div>
           </div>
-          <div className="flex items-center gap-4 mb-3">
-            {[
-              ['Total txns', timeline.summary?.total],
-              ['Flagged', timeline.summary?.flagged],
-              ['Total spent', `₹${Number(timeline.summary?.totalAmount||0).toLocaleString()}`],
-              ['Avg score', timeline.summary?.avgScore],
-            ].map(([lbl, val]) => (
-              <div key={lbl} className="text-center">
-                <div className="text-xs text-text-muted">{lbl}</div>
-                <div className="text-sm font-bold text-text-pri font-mono">{val}</div>
-              </div>
-            ))}
-          </div>
-          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+          
+          <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
             {timeline.data?.map((t, i) => (
-              <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs ${t.fraudStatus !== 'clear' ? 'bg-red-500/5 border border-red-500/10' : 'bg-bg-card'}`}>
-                <span className="text-text-muted font-mono w-16 flex-shrink-0">{new Date(t.timestamp).toLocaleTimeString()}</span>
-                <span className="text-text-sec flex-1">{t.merchantId}</span>
-                <span className="text-text-pri font-semibold">₹{Number(t.amount).toLocaleString()}</span>
+              <div key={i} className={`flex items-center gap-4 p-2 border-l-2 text-xs font-mono ${t.fraudStatus !== 'clear' ? 'border-red-500 bg-red-500/5' : 'border-border-mid bg-bg-card'}`}>
+                <span className="text-text-muted">{new Date(t.timestamp).toLocaleTimeString()}</span>
+                <span className="text-text-sec w-24 truncate">{t.merchantId}</span>
+                <span className="text-brand w-20">₹{t.amount}</span>
                 <FraudScore score={t.fraudScore} />
                 <StatusBadge status={t.fraudStatus} size="xs" />
               </div>
@@ -245,16 +200,11 @@ export default function Alerts() {
     try {
       const { data } = await api.get(`/alerts?status=${status}&limit=50`);
       setAlerts(data.data || []);
-
-      // Load counts for tab badges
       const [openR, allR] = await Promise.all([
         api.get('/alerts?status=open&limit=1'),
         api.get('/alerts?status=all&limit=1'),
       ]);
-      setCounts({
-        open:      openR.data.pagination?.total || 0,
-        total:     allR.data.pagination?.total  || 0,
-      });
+      setCounts({ open: openR.data.pagination?.total || 0, total: allR.data.pagination?.total || 0 });
     } catch (err) {
       console.error(err);
     } finally {
@@ -267,90 +217,65 @@ export default function Alerts() {
   useEffect(() => {
     socketRef.current = getSocket();
     const s = socketRef.current;
-
     const handleNewAlert = ({ alert }) => {
-      if (filter === 'open' || filter === 'all') {
-        setAlerts(prev => [alert, ...prev]);
-      }
+      if (filter === 'open' || filter === 'all') setAlerts(prev => [alert, ...prev]);
       setCounts(prev => ({ ...prev, open: (prev.open||0)+1, total: (prev.total||0)+1 }));
     };
-    const handleAlertUpdated = (updated) => {
-      setAlerts(prev => prev.map(a => a._id === updated._id ? { ...a, ...updated } : a));
-    };
+    const handleAlertUpdated = (updated) => setAlerts(prev => prev.map(a => a._id === updated._id ? { ...a, ...updated } : a));
 
     s.on('new-fraud-alert', handleNewAlert);
     s.on('alert-updated', handleAlertUpdated);
-
-    return () => {
-      s.off('new-fraud-alert', handleNewAlert);
-      s.off('alert-updated', handleAlertUpdated);
-    };
+    return () => { s.off('new-fraud-alert', handleNewAlert); s.off('alert-updated', handleAlertUpdated); };
   }, [filter]);
 
   const handleUpdate = (id, action) => {
-    const statusMap = {
-      resolve: 'resolved', false_positive: 'false_positive',
-      escalate: 'escalated', block_user: 'resolved', block_device: 'resolved'
-    };
-    setAlerts(prev => prev.map(a =>
-      a._id === id ? { ...a, status: statusMap[action] || a.status } : a
-    ));
+    const sm = { resolve: 'resolved', false_positive: 'false_positive', escalate: 'escalated', block_user: 'resolved', block_device: 'resolved' };
+    setAlerts(prev => prev.map(a => a._id === id ? { ...a, status: sm[action] || a.status } : a));
   };
 
-  const handleFilterChange = (f) => { setFilter(f); load(f); };
-
   const TABS = [
-    { key: 'open',           label: `Open (${counts.open || 0})` },
-    { key: 'escalated',      label: 'Escalated' },
-    { key: 'resolved',       label: 'Resolved'  },
-    { key: 'false_positive', label: 'False Positives' },
-    { key: 'all',            label: `All (${counts.total || 0})` },
+    { key: 'open',           label: `OPEN [${counts.open || 0}]` },
+    { key: 'escalated',      label: 'ESCALATED' },
+    { key: 'resolved',       label: 'RESOLVED'  },
+    { key: 'false_positive', label: 'FALSE_POS' },
+    { key: 'all',            label: `ALL [${counts.total || 0}]` },
   ];
 
   return (
     <Layout>
-      <div className="p-6">
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <ShieldAlert size={18} className="text-brand" />
-              <h1 className="text-xl font-bold text-text-pri">Alert Workbench</h1>
+      <div className="p-6 max-w-[1000px] mx-auto">
+        <div className="pixel-box border-amber-500 p-5 mb-6 flex items-center justify-between bg-bg-card">
+          <div className="flex items-center gap-4">
+            <ShieldAlert size={32} className="text-amber-500" />
+            <div>
+              <h1 className="text-2xl font-vt text-amber-500 tracking-widest text-shadow-pixel">REVIEW_DEPT</h1>
+              <div className="text-xs font-mono text-text-sec mt-1">AWAITING ANALYST TRIAGE</div>
             </div>
-            <p className="text-sm text-text-muted">
-              Review flagged transactions · Block users and devices · Escalate novel patterns to PERC
-            </p>
           </div>
-          <button onClick={() => load(filter)}
-            className="text-xs text-text-sec border border-border-dim rounded-lg px-3 py-1.5 hover:border-border-mid transition-all">
-            Refresh
+          <button onClick={() => load()} className="pixel-btn px-4 py-2 text-text-pri text-xs flex items-center gap-2">
+            SYNC
           </button>
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex gap-1.5 mb-6 flex-wrap border-b border-border-dim pb-4">
+        <div className="flex gap-2 mb-6 flex-wrap border-b-2 border-border-dim pb-4">
           {TABS.map(t => (
-            <button key={t.key} onClick={() => handleFilterChange(t.key)}
-              className={`text-xs px-3 py-1.5 rounded-lg border transition-all
-                ${filter === t.key ? 'bg-brand text-black border-brand font-semibold' : 'border-border-dim text-text-sec hover:border-border-mid hover:text-text-pri'}`}>
+            <button key={t.key} onClick={() => { setFilter(t.key); load(t.key); }}
+              className={`pixel-btn px-4 py-2 text-xs transition-all ${filter === t.key ? 'pixel-btn-brand' : 'text-text-sec'}`}>
               {t.label}
             </button>
           ))}
         </div>
 
-        {/* Alert list */}
         {loading ? (
           <div className="space-y-4">{Array.from({length:4}).map((_,i) => <SkeletonAlertCard key={i} />)}</div>
         ) : alerts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <ShieldAlert size={40} className="text-text-muted mb-3" />
-            <div className="text-text-sec font-medium mb-1">No alerts in this category</div>
-            <div className="text-xs text-text-muted">Run the simulator to generate fraud alerts</div>
+          <div className="pixel-box p-12 text-center border-border-dim text-text-muted font-vt text-xl flex flex-col items-center">
+            <CheckCircle size={40} className="mb-4 text-border-hi" />
+            QUEUE_CLEAR. NO_ALERTS_FOUND.
           </div>
         ) : (
           <div className="space-y-4">
-            {alerts.map(alert => (
-              <AlertCard key={alert._id} alert={alert} onUpdate={handleUpdate} />
-            ))}
+            {alerts.map(a => <AlertCard key={a._id} alert={a} onUpdate={handleUpdate} />)}
           </div>
         )}
       </div>

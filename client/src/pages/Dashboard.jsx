@@ -4,7 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { RefreshCw, ChevronDown, ChevronUp, Activity } from 'lucide-react';
+import { RefreshCcw, ChevronDown, ChevronUp, Terminal, Activity } from 'lucide-react';
 import Layout from '../components/shared/Layout';
 import StatCard from '../components/shared/StatCard';
 import StatusBadge from '../components/shared/StatusBadge';
@@ -12,33 +12,34 @@ import FraudScore from '../components/shared/FraudScore';
 import { SkeletonRow, SkeletonCard } from '../components/shared/Skeleton';
 import api from '../api/axiosConfig';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+import receptionistIdle from '../assets/pixel/receptionist_idle.png';
+import receptionistAlert from '../assets/pixel/receptionist_alert.png';
 
-const PIE_COLORS = { clear: '#22c55e', review: '#f59e0b', blocked: '#ef4444' };
+const PIE_COLORS = { clear: '#00ffcc', review: '#f59e0b', blocked: '#ef4444' };
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-bg-card border border-border-mid rounded-lg px-3 py-2 text-xs shadow-xl">
-      <div className="text-text-sec mb-1">{label}</div>
-      <div className="text-brand font-mono font-semibold">{payload[0].value} transactions</div>
+    <div className="pixel-box p-3 font-mono border-brand text-xs">
+      <div className="text-text-sec mb-1">T:{label}</div>
+      <div className="text-brand font-bold">VOL:{payload[0].value}</div>
     </div>
   );
 };
 
 function RuleTag({ rule }) {
   const colors = {
-    VELOCITY_RULE:           'bg-red-500/10 text-red-400 border-red-500/20',
-    ENUMERATION_ATTACK_RULE: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-    AMOUNT_THRESHOLD_RULE:   'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    GEOGRAPHIC_ANOMALY_RULE: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    NEW_DEVICE_RULE:         'bg-orange-500/10 text-orange-400 border-orange-500/20',
-    NIGHT_OWL_RULE:          'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-    BLOCK_LIST:              'bg-red-500/15 text-red-300 border-red-500/30',
+    VELOCITY_RULE:           'text-red-400 border-red-500 bg-red-500/10',
+    ENUMERATION_ATTACK_RULE: 'text-purple-400 border-purple-500 bg-purple-500/10',
+    AMOUNT_THRESHOLD_RULE:   'text-amber-400 border-amber-500 bg-amber-500/10',
+    GEOGRAPHIC_ANOMALY_RULE: 'text-blue-400 border-blue-500 bg-blue-500/10',
+    NEW_DEVICE_RULE:         'text-orange-400 border-orange-500 bg-orange-500/10',
+    NIGHT_OWL_RULE:          'text-brand border-brand bg-brand-dim',
+    BLOCK_LIST:              'text-red-500 border-red-500 bg-red-500/20 font-bold',
   };
-  const cls = colors[rule] || 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+  const cls = colors[rule] || 'text-text-sec border-text-muted bg-bg-primary';
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded border font-mono ${cls}`}>
+    <span className={`text-[10px] px-1.5 py-0.5 border uppercase font-pixel tracking-widest ${cls}`}>
       {rule.replace(/_RULE$/, '').replace(/_/g, ' ')}
     </span>
   );
@@ -51,60 +52,55 @@ function TxRow({ txn, isNew }) {
     <>
       <tr
         onClick={() => setExpanded(e => !e)}
-        className={`border-b border-border-dim cursor-pointer transition-colors hover:bg-bg-card2
-          ${isNew ? 'new-row bg-brand/5' : ''}
-          ${txn.fraudStatus === 'blocked' ? 'bg-red-500/3' : ''}
-          ${txn.fraudStatus === 'review'  ? 'bg-amber-500/3' : ''}`}
+        className={`border-b-2 border-border-dim cursor-pointer transition-colors hover:bg-border-dim/50
+          ${isNew ? 'bg-brand/20 animate-pulse-fast' : ''}
+          ${txn.fraudStatus === 'blocked' ? 'border-l-4 border-l-red-500' : ''}
+          ${txn.fraudStatus === 'review'  ? 'border-l-4 border-l-amber-500' : ''}
+          ${txn.fraudStatus === 'clear'   ? 'border-l-4 border-l-brand' : ''}
+        `}
       >
-        <td className="px-4 py-3 text-xs text-text-muted font-mono whitespace-nowrap">
+        <td className="px-4 py-3 text-xs text-text-sec font-mono whitespace-nowrap">
           {new Date(txn.timestamp).toLocaleTimeString()}
         </td>
-        <td className="px-4 py-3 text-sm font-mono text-text-sec">{txn.userId}</td>
-        <td className="px-4 py-3 text-sm text-text-sec">{txn.merchantId}</td>
-        <td className="px-4 py-3 text-sm font-semibold text-text-pri">
+        <td className="px-4 py-3 text-sm font-mono text-text-pri">{txn.userId}</td>
+        <td className="px-4 py-3 text-sm font-pixel tracking-widest text-text-sec uppercase">{txn.merchantId}</td>
+        <td className="px-4 py-3 text-sm font-mono text-brand">
           ₹{Number(txn.amount).toLocaleString()}
         </td>
         <td className="px-4 py-3">
-          <FraudScore score={txn.fraudScore} showBar />
+          <FraudScore score={txn.fraudScore} />
         </td>
         <td className="px-4 py-3">
           <StatusBadge status={txn.fraudStatus} />
         </td>
-        <td className="px-4 py-3 text-text-muted">
-          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        <td className="px-4 py-3 text-text-muted text-right">
+          {expanded ? <ChevronUp size={16} className="inline" /> : <ChevronDown size={16} className="inline" />}
         </td>
       </tr>
 
       {expanded && (
-        <tr className="bg-bg-secondary border-b border-border-dim">
-          <td colSpan={7} className="px-6 py-3">
-            <div className="flex flex-wrap gap-3 text-xs">
-              <div>
-                <span className="text-text-muted mr-1.5">Device:</span>
-                <span className="font-mono text-text-sec">{txn.deviceId || '—'}</span>
+        <tr className="bg-bg-secondary border-b-2 border-border-mid">
+          <td colSpan={7} className="p-4">
+            <div className="pixel-box p-3 border-border-hi">
+              <div className="flex flex-wrap gap-6 text-xs font-mono mb-3">
+                <div><span className="text-text-muted">DEV:</span> <span className="text-text-pri">{txn.deviceId || 'UNKNOWN'}</span></div>
+                <div><span className="text-text-muted">LOC:</span> <span className="text-text-pri">{txn.location?.city || 'UNKNOWN'}</span></div>
+                <div><span className="text-text-muted">TXN_ID:</span> <span className="text-text-muted">{txn.transactionId}</span></div>
               </div>
-              <div>
-                <span className="text-text-muted mr-1.5">City:</span>
-                <span className="text-text-sec">{txn.location?.city || '—'}</span>
-              </div>
-              <div>
-                <span className="text-text-muted mr-1.5">Transaction ID:</span>
-                <span className="font-mono text-text-muted text-[10px]">{txn.transactionId}</span>
-              </div>
-            </div>
-            {txn.rulesTriggered?.length > 0 && (
-              <div className="mt-2">
-                <span className="text-text-muted text-xs mr-2">Rules triggered:</span>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {txn.rulesTriggered.map((r, i) => (
-                    <div key={i} className="flex items-center gap-1.5">
-                      <RuleTag rule={r.ruleName} />
-                      <span className="text-[10px] text-text-muted">{r.reason || `score: ${r.score}`}</span>
-                    </div>
-                  ))}
+              {txn.rulesTriggered?.length > 0 && (
+                <div className="border-t border-border-dim pt-3">
+                  <span className="text-text-muted text-[10px] uppercase font-pixel tracking-widest block mb-2">VIO_RULES:</span>
+                  <div className="flex flex-wrap gap-2">
+                    {txn.rulesTriggered.map((r, i) => (
+                      <div key={i} className="flex items-center gap-2 bg-bg-primary px-2 py-1 border border-border-dim">
+                        <RuleTag rule={r.ruleName} />
+                        <span className="text-[10px] text-text-muted font-mono">{r.reason || `SCR:${r.score}`}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </td>
         </tr>
       )}
@@ -119,10 +115,9 @@ export default function Dashboard() {
   const [ruleData,     setRuleData]     = useState([]);
   const [newIds,       setNewIds]       = useState(new Set());
   const [loading,      setLoading]      = useState(true);
-  const [connected,    setConnected]    = useState(false);
+  const [isAlert,      setIsAlert]      = useState(false);
   const socketRef = useRef(null);
 
-  // Load initial data
   useEffect(() => {
     const load = async () => {
       try {
@@ -134,8 +129,6 @@ export default function Dashboard() {
         setTransactions(txRes.data.data || []);
         setStats(statsRes.data);
         setRuleData(ruleRes.data.data || []);
-
-        // Build initial hourly chart from loaded transactions
         buildChartData(txRes.data.data || []);
       } catch (err) {
         console.error('Load error:', err.message);
@@ -156,28 +149,17 @@ export default function Dashboard() {
     setChartData(Object.entries(hourMap).map(([hour, count]) => ({ hour, count })).sort((a,b) => a.hour.localeCompare(b.hour)));
   };
 
-  // WebSocket
   useEffect(() => {
     socketRef.current = getSocket();
     const s = socketRef.current;
 
-    const handleConnect = () => setConnected(true);
-    const handleDisconnect = () => setConnected(false);
-    s.on('connect',    handleConnect);
-    s.on('disconnect', handleDisconnect);
-    setConnected(s.connected);
-
     const handleNewTransaction = (txn) => {
-      setTransactions(prev => {
-        const updated = [txn, ...prev].slice(0, 50);
-        return updated;
-      });
+      setTransactions(prev => [txn, ...prev].slice(0, 50));
       setNewIds(prev => new Set([...prev, txn._id]));
       setTimeout(() => setNewIds(prev => { const n = new Set(prev); n.delete(txn._id); return n; }), 1500);
 
       setStats(prev => prev ? { ...prev, total: (prev.total || 0) + 1 } : prev);
 
-      // Update chart
       const h = new Date(txn.timestamp).getHours();
       const key = `${String(h).padStart(2,'0')}:00`;
       setChartData(prev => {
@@ -190,9 +172,11 @@ export default function Dashboard() {
         return [...prev, { hour: key, count: 1 }].sort((a,b) => a.hour.localeCompare(b.hour));
       });
     };
-    s.on('new-transaction', handleNewTransaction);
 
     const handleNewFraudAlert = ({ transaction }) => {
+      setIsAlert(true);
+      setTimeout(() => setIsAlert(false), 4000);
+
       if (!transaction) return;
       setStats(prev => {
         if (!prev) return prev;
@@ -204,11 +188,11 @@ export default function Dashboard() {
         };
       });
     };
+
+    s.on('new-transaction', handleNewTransaction);
     s.on('new-fraud-alert', handleNewFraudAlert);
 
     return () => {
-      s.off('connect', handleConnect);
-      s.off('disconnect', handleDisconnect);
       s.off('new-transaction', handleNewTransaction);
       s.off('new-fraud-alert', handleNewFraudAlert);
     };
@@ -230,144 +214,163 @@ export default function Dashboard() {
   };
 
   const pieData = stats ? [
-    { name: 'Clear',   value: stats.clear   || 0, color: PIE_COLORS.clear   },
-    { name: 'Review',  value: stats.review  || 0, color: PIE_COLORS.review  },
-    { name: 'Blocked', value: stats.blocked || 0, color: PIE_COLORS.blocked },
+    { name: 'CLEAR',   value: stats.clear   || 0, color: PIE_COLORS.clear   },
+    { name: 'REVIEW',  value: stats.review  || 0, color: PIE_COLORS.review  },
+    { name: 'BLOCKED', value: stats.blocked || 0, color: PIE_COLORS.blocked },
   ] : [];
 
   return (
     <Layout>
-      <div className="p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-bold text-text-pri">Operations Dashboard</h1>
-            <p className="text-sm text-text-muted mt-0.5">Real-time transaction monitoring</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${connected ? 'border-green-500/30 text-green-400 bg-green-500/5' : 'border-red-500/30 text-red-400 bg-red-500/5'}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-400 animate-pulse' : 'bg-red-500'}`} />
-              {connected ? 'Live' : 'Offline'}
+      <div className="p-6 max-w-[1400px] mx-auto">
+        
+        {/* Header Block */}
+        <div className="pixel-box p-4 mb-6 border-brand bg-bg-card2 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            {/* Avatar */}
+            <div className={`w-20 h-20 border-2 ${isAlert ? 'border-red-500 bg-red-500/20' : 'border-brand bg-brand-dim'} relative overflow-hidden flex-shrink-0 shadow-[2px_2px_0_0_#000]`}>
+              <img 
+                src={isAlert ? receptionistAlert : receptionistIdle} 
+                className={`w-full h-full object-cover ${isAlert ? 'animate-shake' : 'animate-bob'}`} 
+                style={{ imageRendering: 'pixelated' }}
+                alt="Receptionist"
+                onError={(e) => { e.target.style.display='none' }}
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.4)_50%)] bg-[length:100%_4px] pointer-events-none" />
             </div>
-            <button onClick={refresh} className="flex items-center gap-1.5 text-xs text-text-sec hover:text-text-pri border border-border-dim rounded-lg px-3 py-1.5 transition-all hover:border-border-mid">
-              <RefreshCw size={12} />
-              Refresh
-            </button>
+            
+            <div>
+              <h1 className="text-3xl font-vt text-brand tracking-widest text-shadow-pixel flex items-center gap-2">
+                <Terminal size={24} />
+                MAIN_OPERATIONS_HUB
+              </h1>
+              <div className="text-sm font-pixel text-text-sec uppercase tracking-widest flex items-center gap-2 mt-1">
+                STATUS: <span className={isAlert ? 'text-red-400 animate-blink' : 'text-brand'}>{isAlert ? 'ALERT CONDITION RED' : 'NOMINAL'}</span>
+              </div>
+            </div>
           </div>
+          
+          <button onClick={refresh} className="pixel-btn px-4 py-2 flex items-center gap-2 text-text-pri text-sm">
+            <RefreshCcw size={14} />
+            SYNC DATA
+          </button>
         </div>
 
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        {/* Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
           {loading ? (
             Array.from({length:4}).map((_,i) => <SkeletonCard key={i} />)
           ) : (<>
-            <StatCard label="Total Transactions" value={stats?.total || 0}       accent="teal"   icon="📊" />
-            <StatCard label="Flagged (Review)"   value={stats?.flagged || 0}      accent="amber"  icon="⚠️" />
-            <StatCard label="Blocked"            value={stats?.blocked || 0}      accent="red"    icon="🚫" />
-            <StatCard label="Avg Fraud Score"    value={stats?.avgFraudScore || 0} accent="purple" icon="🎯" sub="out of 100" />
+            <StatCard label="TOTAL_TXN" value={stats?.total || 0}       accent="brand"  icon="T" />
+            <StatCard label="FLAGGED"   value={stats?.flagged || 0}      accent="amber"  icon="!" />
+            <StatCard label="BLOCKED"   value={stats?.blocked || 0}      accent="red"    icon="X" />
+            <StatCard label="AVG_SCORE" value={stats?.avgFraudScore || 0} accent="purple" icon="S" sub="OF 100" />
           </>)}
         </div>
 
-        {/* Charts row */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
-          {/* Area chart */}
-          <div className="xl:col-span-2 bg-bg-card border border-border-dim rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-semibold text-text-pri">Transaction Volume</h2>
-                <p className="text-xs text-text-muted mt-0.5">by hour today</p>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-brand">
-                <Activity size={12} />
-                Live updating
-              </div>
-            </div>
+        {/* Charts & Rules */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+          {/* Main Chart */}
+          <div className="xl:col-span-2 pixel-box p-5 border-border-mid relative">
+            <div className="absolute top-0 right-0 bg-brand text-bg-primary text-[10px] font-pixel px-2 py-1 tracking-widest">LIVE_DATA</div>
+            <h2 className="text-lg font-vt text-text-pri tracking-widest mb-4 flex items-center gap-2">
+              <Activity size={16} className="text-brand" />
+              TXN_VOLUME_HISTORY
+            </h2>
             {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={180}>
-                <AreaChart data={chartData} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={chartData} margin={{ top: 5, right: 0, bottom: 0, left: -20 }}>
                   <defs>
-                    <linearGradient id="tealGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#00d4b8" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#00d4b8" stopOpacity={0}    />
+                    <linearGradient id="brandGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="var(--color-brand)" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="var(--color-brand)" stopOpacity={0}    />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="hour" tick={{ fontSize: 10, fill: '#4a4a6a' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#4a4a6a' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="hour" tick={{ fontSize: 10, fill: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="count" stroke="#00d4b8" strokeWidth={2} fill="url(#tealGrad)" dot={false} activeDot={{ r: 4, fill: '#00d4b8' }} />
+                  <Area type="step" dataKey="count" stroke="var(--color-brand)" strokeWidth={2} fill="url(#brandGrad)" dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[180px] flex items-center justify-center text-text-muted text-sm">
-                No data yet — run the simulator to generate transactions
+              <div className="h-[200px] flex items-center justify-center font-pixel text-text-muted text-sm tracking-widest uppercase">
+                AWAITING INPUT...
               </div>
             )}
           </div>
 
-          {/* Pie chart */}
-          <div className="bg-bg-card border border-border-dim rounded-xl p-5">
-            <h2 className="text-sm font-semibold text-text-pri mb-1">Status Breakdown</h2>
-            <p className="text-xs text-text-muted mb-4">All transactions</p>
-            {pieData.some(d => d.value > 0) ? (
-              <ResponsiveContainer width="100%" height={180}>
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75}
-                       paddingAngle={3} dataKey="value">
-                    {pieData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} strokeWidth={0} />
-                    ))}
-                  </Pie>
-                  <Legend formatter={(value) => <span style={{ color: '#8888a8', fontSize: 12 }}>{value}</span>} />
-                  <Tooltip contentStyle={{ background: '#16161e', border: '1px solid #2a2a3e', borderRadius: 8, fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[180px] flex items-center justify-center text-text-muted text-sm">No data yet</div>
+          <div className="flex flex-col gap-6">
+            {/* Pie Chart */}
+            <div className="pixel-box p-5 border-border-mid flex-1">
+              <h2 className="text-lg font-vt text-text-pri tracking-widest mb-2">STATUS_DIST</h2>
+              {pieData.some(d => d.value > 0) ? (
+                <div className="h-[140px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={60}
+                           paddingAngle={2} dataKey="value" stroke="none">
+                        {pieData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: 'var(--color-bg-card)', border: '2px solid var(--color-border-mid)', borderRadius: 0, fontFamily: 'var(--font-mono)' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-[140px] flex items-center justify-center font-pixel text-text-muted text-xs">NO_DATA</div>
+              )}
+              <div className="flex justify-center gap-3 mt-2">
+                {pieData.map(d => (
+                  <div key={d.name} className="flex items-center gap-1 text-[10px] font-mono">
+                    <div className="w-2 h-2" style={{ backgroundColor: d.color }}></div>
+                    <span style={{ color: d.color }}>{d.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Rule breakdown mini */}
+            {ruleData.length > 0 && (
+              <div className="pixel-box p-4 border-border-mid">
+                <h2 className="text-sm font-vt text-text-pri tracking-widest mb-3">RULE_TRIGGERS</h2>
+                <div className="space-y-2">
+                  {ruleData.slice(0,3).map((r) => {
+                    const max = ruleData[0]?.count || 1;
+                    const pct = Math.round((r.count / max) * 100);
+                    return (
+                      <div key={r._id} className="flex flex-col gap-1">
+                        <div className="flex justify-between text-[10px] font-mono">
+                          <span className="text-text-sec truncate w-32">{r._id?.replace(/_RULE$/, '')}</span>
+                          <span className="text-text-pri">{r.count}</span>
+                        </div>
+                        <div className="h-1 bg-bg-primary w-full">
+                          <div className="h-full bg-brand" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Rule breakdown */}
-        {ruleData.length > 0 && (
-          <div className="bg-bg-card border border-border-dim rounded-xl p-5 mb-6">
-            <h2 className="text-sm font-semibold text-text-pri mb-4">Rule Trigger Frequency</h2>
-            <div className="space-y-2.5">
-              {ruleData.map((r) => {
-                const max = ruleData[0]?.count || 1;
-                const pct = Math.round((r.count / max) * 100);
-                return (
-                  <div key={r._id} className="flex items-center gap-3">
-                    <div className="w-40 text-xs font-mono text-text-sec truncate">{r._id?.replace(/_RULE$/, '').replace(/_/g, ' ')}</div>
-                    <div className="flex-1 h-1.5 bg-border-dim rounded-full overflow-hidden">
-                      <div className="h-full bg-brand/60 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
-                    </div>
-                    <div className="w-8 text-xs text-text-muted text-right font-mono">{r.count}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Live feed */}
-        <div className="bg-bg-card border border-border-dim rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border-dim">
-            <div>
-              <h2 className="text-sm font-semibold text-text-pri">Live Transaction Feed</h2>
-              <p className="text-xs text-text-muted mt-0.5">Click any row to expand details</p>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-text-muted">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
-              {transactions.length} loaded
+        {/* Live feed terminal */}
+        <div className="pixel-box border-border-mid overflow-hidden">
+          <div className="bg-border-mid px-4 py-2 flex items-center justify-between">
+            <h2 className="text-base font-vt text-text-pri tracking-widest">TXN_TERMINAL</h2>
+            <div className="flex items-center gap-2 text-xs font-pixel text-brand">
+              <span className="w-2 h-2 bg-brand animate-pulse-fast"></span>
+              MONITORING
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto bg-bg-card">
+            <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-border-dim">
-                  {['Time', 'User', 'Merchant', 'Amount', 'Score', 'Status', ''].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-[10px] text-text-muted uppercase tracking-widest font-medium">{h}</th>
+                <tr className="border-b-2 border-border-mid bg-bg-secondary">
+                  {['TIMESTAMP', 'USR_ID', 'MERCHANT', 'AMT(INR)', 'SCORE', 'STATUS', 'SYS'].map(h => (
+                    <th key={h} className="px-4 py-3 text-xs font-pixel text-text-muted tracking-widest">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -375,8 +378,8 @@ export default function Dashboard() {
                 {loading ? (
                   Array.from({length:8}).map((_,i) => <SkeletonRow key={i} cols={7} />)
                 ) : transactions.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-16 text-center text-text-muted text-sm">
-                    No transactions yet. Use the Simulator to generate activity.
+                  <tr><td colSpan={7} className="px-4 py-16 text-center text-text-muted font-vt text-xl">
+                    SYSTEM IDLE. AWAITING INPUT.
                   </td></tr>
                 ) : (
                   transactions.map(txn => (
@@ -387,6 +390,7 @@ export default function Dashboard() {
             </table>
           </div>
         </div>
+        
       </div>
     </Layout>
   );

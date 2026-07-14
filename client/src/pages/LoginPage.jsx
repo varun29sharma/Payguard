@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { SquareTerminal, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axiosConfig';
+import bgTile from '../assets/pixel/bg_tile.png';
 
 export default function LoginPage() {
   const [tab,      setTab]      = useState('login');
@@ -14,172 +15,99 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate  = useNavigate();
 
-  const handleChange = (e) => {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-    setError('');
-  };
+  const handleChange = (e) => { setForm(f => ({ ...f, [e.target.name]: e.target.value })); setError(''); };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+    e.preventDefault(); setLoading(true); setError('');
     try {
-      const endpoint = tab === 'login' ? '/auth/login' : '/auth/register';
-      const payload  = tab === 'login'
-        ? { email: form.email, password: form.password }
-        : { name: form.name, email: form.email, password: form.password, role: form.role };
-
-      const { data } = await api.post(endpoint, payload);
+      const ep = tab === 'login' ? '/auth/login' : '/auth/register';
+      const payload = tab === 'login' ? { email: form.email, password: form.password } : form;
+      const { data } = await api.post(ep, payload);
       login(data.user, data.token);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong. Check if your server is running.');
-    } finally {
-      setLoading(false);
-    }
+      setError(err.response?.data?.message || 'SYS_ERR: CONN_REFUSED');
+    } finally { setLoading(false); }
   };
 
   return (
-    <div className="min-h-screen bg-bg-primary flex">
-      {/* Left panel — branding */}
-      <div className="hidden lg:flex w-1/2 bg-bg-secondary border-r border-border-dim flex-col justify-between p-12 relative overflow-hidden">
-        {/* Background grid */}
-        <div className="absolute inset-0 opacity-[0.03]"
-          style={{ backgroundImage: 'linear-gradient(#00d4b8 1px,transparent 1px),linear-gradient(to right,#00d4b8 1px,transparent 1px)', backgroundSize: '40px 40px' }} />
-
-        {/* Glow orb */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand/5 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative">
-          <div className="flex items-center gap-3 mb-12">
-            <div className="w-10 h-10 bg-brand rounded-xl flex items-center justify-center">
-              <Shield size={20} className="text-black" strokeWidth={2.5} />
-            </div>
-            <span className="text-xl font-bold text-gradient">PayGuard</span>
-          </div>
-          <h1 className="text-4xl font-bold text-text-pri leading-tight mb-4">
-            Real-time fraud<br />
-            <span className="text-gradient">intelligence</span><br />
-            for UPI networks.
-          </h1>
-          <p className="text-text-sec text-lg leading-relaxed max-w-sm">
-            Detect enumeration attacks, relay fraud, and account takeover campaigns before they drain accounts.
+    <div className="min-h-screen bg-bg-primary flex relative overflow-hidden" style={{ backgroundImage: `url(${bgTile})`, backgroundRepeat: 'repeat', backgroundSize: '128px 128px', backgroundBlendMode: 'multiply' }}>
+      <div className="crt-overlay"></div>
+      
+      {/* Visual left half */}
+      <div className="hidden lg:flex w-1/2 flex-col items-center justify-center relative z-10 border-r-4 border-border-mid bg-bg-primary/80">
+        <div className="pixel-box p-8 border-brand bg-bg-card max-w-md relative">
+          <div className="absolute top-0 left-0 bg-brand text-bg-primary text-xs font-pixel px-2 tracking-widest translate-y-[-50%] translate-x-4">SECURE_TERM_01</div>
+          <SquareTerminal size={64} className="text-brand mb-6" />
+          <h1 className="text-6xl font-vt text-brand tracking-widest text-shadow-pixel mb-4 leading-none">PAYGUARD</h1>
+          <div className="h-1 w-full bg-brand mb-6"></div>
+          <p className="font-mono text-sm text-text-pri leading-relaxed uppercase mb-6">
+            Establishing secure uplink to precinct network.<br/><br/>
+            Real-time fraud intelligence online. PERC-aligned campaign detection active.
           </p>
-        </div>
-
-        {/* Stat pills */}
-        <div className="relative flex flex-col gap-3">
-          {[
-            ['🛡️', 'Visa PERC-aligned threat detection', 'text-brand'],
-            ['⚡', 'Sub-200ms fraud scoring via Java engine', 'text-amber-400'],
-            ['🔴', 'Campaign detection across 5 attack types', 'text-red-400'],
-            ['📍', 'Geographic relay fraud pattern recognition', 'text-purple-400'],
-          ].map(([emoji, text, color]) => (
-            <div key={text} className="flex items-center gap-3 bg-bg-card/50 border border-border-dim rounded-lg px-4 py-2.5">
-              <span className="text-base">{emoji}</span>
-              <span className={`text-sm font-medium ${color}`}>{text}</span>
-            </div>
-          ))}
+          <div className="flex gap-2">
+            <span className="w-3 h-3 bg-brand animate-pulse-fast border border-bg-primary"></span>
+            <span className="w-3 h-3 bg-amber-500 animate-pulse-fast border border-bg-primary" style={{ animationDelay: '0.2s' }}></span>
+            <span className="w-3 h-3 bg-red-500 animate-pulse-fast border border-bg-primary" style={{ animationDelay: '0.4s' }}></span>
+          </div>
         </div>
       </div>
 
-      {/* Right panel — form */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <div className="w-8 h-8 bg-brand rounded-lg flex items-center justify-center">
-              <Shield size={16} className="text-black" />
-            </div>
-            <span className="text-lg font-bold text-gradient">PayGuard</span>
+      {/* Form right half */}
+      <div className="flex-1 flex items-center justify-center p-6 relative z-10">
+        <div className="pixel-box border-border-hi w-full max-w-md p-8 bg-bg-secondary">
+          <div className="flex lg:hidden items-center gap-3 mb-8">
+            <SquareTerminal size={32} className="text-brand" />
+            <h1 className="text-4xl font-vt text-brand tracking-widest text-shadow-pixel">PAYGUARD</h1>
           </div>
 
-          {/* Tabs */}
-          <div className="flex bg-bg-card border border-border-dim rounded-xl p-1 mb-8">
+          <div className="flex mb-8 border-b-2 border-border-mid">
             {['login', 'register'].map(t => (
-              <button
-                key={t}
-                onClick={() => { setTab(t); setError(''); }}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all capitalize
-                  ${tab === t ? 'bg-brand text-black' : 'text-text-sec hover:text-text-pri'}`}
-              >
-                {t === 'login' ? 'Sign In' : 'Register'}
+              <button key={t} onClick={() => { setTab(t); setError(''); }} className={`flex-1 py-3 font-pixel text-sm uppercase tracking-widest transition-colors ${tab === t ? 'bg-brand text-bg-primary shadow-[inset_0_-4px_0_0_rgba(0,0,0,0.2)]' : 'text-text-sec hover:bg-border-dim'}`}>
+                {t === 'login' ? 'AUTH' : 'NEW_OP'}
               </button>
             ))}
           </div>
 
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-text-pri mb-1">
-              {tab === 'login' ? 'Welcome back' : 'Create account'}
-            </h2>
-            <p className="text-text-sec text-sm">
-              {tab === 'login' ? 'Sign in to your analyst dashboard' : 'Join the fraud intelligence platform'}
-            </p>
-          </div>
-
-          {/* Error */}
           {error && (
-            <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 mb-5">
-              <AlertCircle size={15} className="text-red-400 flex-shrink-0" />
-              <span className="text-sm text-red-300">{error}</span>
+            <div className="border-2 border-red-500 bg-red-500/10 p-3 mb-6 flex items-start gap-3">
+              <AlertTriangle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <div className="font-mono text-xs text-red-400 uppercase leading-relaxed">{error}</div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {tab === 'register' && (
               <div>
-                <label className="block text-xs text-text-sec mb-1.5 uppercase tracking-wider">Full Name</label>
-                <input
-                  name="name" value={form.name} onChange={handleChange} required
-                  placeholder="Sreeram Sharma"
-                  className="w-full bg-bg-card border border-border-dim rounded-lg px-4 py-3 text-sm text-text-pri placeholder-text-muted focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/30 transition-all"
-                />
+                <label className="block font-pixel text-xs text-text-sec mb-2 tracking-widest uppercase">CALLSIGN</label>
+                <input name="name" value={form.name} onChange={handleChange} required className="w-full bg-bg-primary border-2 border-border-hi p-3 font-mono text-sm text-text-pri focus:border-brand outline-none uppercase" placeholder="OP_NAME" />
               </div>
             )}
-
             <div>
-              <label className="block text-xs text-text-sec mb-1.5 uppercase tracking-wider">Email</label>
-              <input
-                name="email" type="email" value={form.email} onChange={handleChange} required
-                placeholder="analyst@payguard.io"
-                className="w-full bg-bg-card border border-border-dim rounded-lg px-4 py-3 text-sm text-text-pri placeholder-text-muted focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/30 transition-all"
-              />
+              <label className="block font-pixel text-xs text-text-sec mb-2 tracking-widest uppercase">UPLINK_ID [EMAIL]</label>
+              <input name="email" type="email" value={form.email} onChange={handleChange} required className="w-full bg-bg-primary border-2 border-border-hi p-3 font-mono text-sm text-text-pri focus:border-brand outline-none" placeholder="OP@PAYGUARD.SYS" />
             </div>
-
             <div>
-              <label className="block text-xs text-text-sec mb-1.5 uppercase tracking-wider">Password</label>
+              <label className="block font-pixel text-xs text-text-sec mb-2 tracking-widest uppercase">ACCESS_CODE</label>
               <div className="relative">
-                <input
-                  name="password" type={showPwd ? 'text' : 'password'} value={form.password} onChange={handleChange} required
-                  placeholder="••••••••"
-                  className="w-full bg-bg-card border border-border-dim rounded-lg px-4 py-3 pr-11 text-sm text-text-pri placeholder-text-muted focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/30 transition-all"
-                />
-                <button type="button" onClick={() => setShowPwd(s => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-sec transition-colors">
-                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                <input name="password" type={showPwd ? 'text' : 'password'} value={form.password} onChange={handleChange} required className="w-full bg-bg-primary border-2 border-border-hi p-3 pr-12 font-mono text-sm text-text-pri focus:border-brand outline-none" placeholder="••••••••" />
+                <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-pri">
+                  {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
-
             {tab === 'register' && (
               <div>
-                <label className="block text-xs text-text-sec mb-1.5 uppercase tracking-wider">Role</label>
-                <select
-                  name="role" value={form.role} onChange={handleChange}
-                  className="w-full bg-bg-card border border-border-dim rounded-lg px-4 py-3 text-sm text-text-pri focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/30 transition-all"
-                >
-                  <option value="analyst">Analyst</option>
-                  <option value="admin">Admin</option>
+                <label className="block font-pixel text-xs text-text-sec mb-2 tracking-widest uppercase">CLEARANCE</label>
+                <select name="role" value={form.role} onChange={handleChange} className="w-full bg-bg-primary border-2 border-border-hi p-3 font-mono text-sm text-text-pri focus:border-brand outline-none uppercase">
+                  <option value="analyst">ANALYST</option>
+                  <option value="admin">COMMAND</option>
                 </select>
               </div>
             )}
 
-            <button
-              type="submit" disabled={loading}
-              className="w-full bg-brand hover:bg-[#00bfa6] disabled:opacity-60 disabled:cursor-not-allowed text-black font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2 mt-2"
-            >
-              {loading && <Loader2 size={16} className="animate-spin" />}
-              {loading ? 'Authenticating...' : (tab === 'login' ? 'Sign In' : 'Create Account')}
+            <button type="submit" disabled={loading} className="pixel-btn pixel-btn-brand w-full py-4 text-base tracking-widest mt-4">
+              {loading ? 'PROCESSING...' : tab === 'login' ? 'ENGAGE' : 'INITIALIZE'}
             </button>
           </form>
         </div>
