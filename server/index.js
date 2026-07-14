@@ -15,6 +15,9 @@ const blockListRoutes   = require('./routes/blockListRoutes');
 
 // Campaign detector
 const { detectCampaigns } = require('./services/campaignDetector');
+const { errorHandler } = require('./middleware/errorHandler');
+const { socketAuthMiddleware } = require('./middleware/socketAuth');
+const { attachSocketBridge } = require('./events/socketBridge');
 
 connectDB();
 
@@ -37,6 +40,9 @@ app.use('/api/blocklist',    blockListRoutes);
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
 
+// Global error handler — must be registered after all routes.
+app.use(errorHandler);
+
 // ── SOCKET.IO ───────────────────────────────────────────────
 const server = http.createServer(app);
 const io     = new Server(server, {
@@ -48,15 +54,25 @@ const io     = new Server(server, {
 
 app.set('io', io);
 
+// Verifies the JWT on socket handshake (when present) before allowing the
+// connection — see middleware/socketAuth.js.
+io.use(socketAuthMiddleware);
+
+// All domain events (new transaction, block created, alert updated, ...)
+// are emitted onto the central event bus and bridged to Socket.IO here —
+// controllers/services never call io.emit(...) directly anymore.
+attachSocketBridge(io);
+
 io.on('connection', (socket) => {
-  console.log(`Client connected: ${socket.id}`);
+  console.log(`Client connected: ${socket.id}${socket.user ? ` (user: ${socket.user.id})` : ' (anonymous)'}`);
   socket.on('disconnect', () => console.log(`Client disconnected: ${socket.id}`));
 });
 
 // ── CAMPAIGN DETECTION INTERVAL ─────────────────────────────
-// Runs every 60 seconds to detect new attack campaigns
+// Runs every 60 seconds to detect new attack campaigns. Emits via the event
+// bus (see services/campaignDetector.js), no longer needs `io` passed in.
 setInterval(() => {
-  detectCampaigns(io).catch(err => console.error('Campaign detection error:', err.message));
+  detectCampaigns().catch(err => console.error('Campaign detection error:', err.message));
 }, 60 * 1000);
 
 // ── START ───────────────────────────────────────────────────

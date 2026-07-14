@@ -1,23 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
 import { Toaster, toast } from 'react-hot-toast';
 import Sidebar from './Sidebar';
-
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
-
-// Shared socket instance so all pages share the same connection
-let sharedSocket = null;
-
-export const getSocket = () => sharedSocket;
+import { getSocket } from '../../api/socket';
 
 export default function Layout({ children }) {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    if (!sharedSocket) {
-      sharedSocket = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
-    }
-    const s = sharedSocket;
+    const s = getSocket();
 
     s.on('connect',    () => setConnected(true));
     s.on('disconnect', () => setConnected(false));

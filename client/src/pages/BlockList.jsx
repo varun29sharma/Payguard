@@ -44,8 +44,11 @@ export default function BlockList() {
     setAdding(true);
     setError('');
     try {
-      const { data } = await api.post('/blocklist', addForm);
-      setEntries(prev => [data.data, ...prev]);
+      // Response now returns the full cascade result (every linked identifier
+      // blocked + transactions rejected + alerts resolved), not a single
+      // BlockList row — refetch the list instead of guessing its shape.
+      await api.post('/blocklist', addForm);
+      await load();
       setAddForm({ type: 'userId', value: '', reason: '' });
       setShowAdd(false);
     } catch (err) {

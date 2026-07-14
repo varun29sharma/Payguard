@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { resetSocket } from '../api/socket';
 
 const AuthContext = createContext(null);
 
@@ -18,6 +19,7 @@ export const AuthProvider = ({ children }) => {
     setToken(authToken);
     localStorage.setItem('pg_token', authToken);
     localStorage.setItem('pg_user', JSON.stringify(userData));
+    resetSocket(); // reconnect the shared socket so it carries the new JWT
   };
 
   const logout = () => {
@@ -25,6 +27,7 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     localStorage.removeItem('pg_token');
     localStorage.removeItem('pg_user');
+    resetSocket();
   };
 
   return (

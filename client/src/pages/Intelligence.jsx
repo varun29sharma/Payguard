@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
 import { Zap, Users, DollarSign, Clock, ChevronDown, ChevronUp, ShieldOff, Eye } from 'lucide-react';
 import Layout from '../components/shared/Layout';
 import StatusBadge from '../components/shared/StatusBadge';
 import { SkeletonAlertCard } from '../components/shared/Skeleton';
 import api from '../api/axiosConfig';
-
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+import { getSocket } from '../api/socket';
 
 const CAMPAIGN_META = {
   DEVICE_FINGERPRINT:    { icon: '📱', color: 'border-orange-500/40 bg-orange-500/3',  label: 'Device Fingerprint Attack',   accent: 'text-orange-400' },
@@ -167,18 +165,23 @@ export default function Intelligence() {
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
-    socketRef.current = io(SOCKET_URL);
+    socketRef.current = getSocket();
     const s = socketRef.current;
 
-    s.on('new-campaign', (campaign) => {
+    const handleNewCampaign = (campaign) => {
       setCampaigns(prev => [campaign, ...prev]);
       setStats(prev => prev ? { ...prev, total: (prev.total || 0) + 1 } : prev);
-    });
-    s.on('campaign-updated', (updated) => {
+    };
+    const handleCampaignUpdated = (updated) => {
       setCampaigns(prev => prev.map(c => c._id === updated._id ? updated : c));
-    });
+    };
+    s.on('new-campaign', handleNewCampaign);
+    s.on('campaign-updated', handleCampaignUpdated);
 
-    return () => s.disconnect();
+    return () => {
+      s.off('new-campaign', handleNewCampaign);
+      s.off('campaign-updated', handleCampaignUpdated);
+    };
   }, []);
 
   const handleFilterChange = (f) => {

@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
 import { Activity, Send, Play, Square, Zap } from 'lucide-react';
 import Layout from '../components/shared/Layout';
 import StatusBadge from '../components/shared/StatusBadge';
 import FraudScore from '../components/shared/FraudScore';
 import api from '../api/axiosConfig';
-
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+import { getSocket } from '../api/socket';
 
 const USERS     = Array.from({length:20},(_,i) => `USER_${i+1}`);
 const MERCHANTS = ['AMAZON_IN','FLIPKART','SWIGGY','ZOMATO','PAYTM','RAZORPAY','PHONEPE'];
@@ -96,18 +94,19 @@ export default function Simulator() {
   const socketRef = useRef(null);
 
   useEffect(() => {
-    socketRef.current = io(SOCKET_URL);
+    socketRef.current = getSocket();
     const s = socketRef.current;
 
-    s.on('new-transaction', (txn) => {
+    const handleNewTxn = (txn) => {
       setRecentTxns(prev => [txn, ...prev].slice(0, 20));
       setLiveCounts(prev => ({
         ...prev,
         [txn.fraudStatus]: (prev[txn.fraudStatus] || 0) + 1,
       }));
-    });
+    };
+    s.on('new-transaction', handleNewTxn);
 
-    return () => s.disconnect();
+    return () => { s.off('new-transaction', handleNewTxn); };
   }, []);
 
   const runBurst = async () => {

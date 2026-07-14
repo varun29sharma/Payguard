@@ -1,9 +1,13 @@
 const mongoose = require('mongoose');
 
+// Every identifier type the identity graph can traverse (see
+// services/identityGraphService.js) must be blockable, not just userId/deviceId.
+const IDENTITY_TYPES = ['userId', 'deviceId', 'accountId', 'fingerprint', 'sessionId', 'ipAddress', 'walletId', 'email', 'phone'];
+
 const blockListSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['userId', 'deviceId'],
+    enum: IDENTITY_TYPES,
     required: true
   },
   value: {
@@ -21,6 +25,13 @@ const blockListSchema = new mongoose.Schema({
   timestamps: true
 });
 
-blockListSchema.index({ type: 1, value: 1, isActive: 1 });
+// Partial unique index: at most one ACTIVE block per (type, value) pair.
+// This makes "block the same entity twice" a database-level guarantee
+// instead of an app-level check-then-insert race condition.
+blockListSchema.index(
+  { type: 1, value: 1 },
+  { unique: true, partialFilterExpression: { isActive: true } }
+);
 
 module.exports = mongoose.model('BlockList', blockListSchema);
+module.exports.IDENTITY_TYPES = IDENTITY_TYPES;

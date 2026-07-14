@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
 import {
   ShieldAlert, UserX, Smartphone, AlertTriangle,
   CheckCircle, XCircle, ChevronDown, ChevronUp,
@@ -10,8 +9,7 @@ import StatusBadge from '../components/shared/StatusBadge';
 import FraudScore from '../components/shared/FraudScore';
 import { SkeletonAlertCard } from '../components/shared/Skeleton';
 import api from '../api/axiosConfig';
-
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+import { getSocket } from '../api/socket';
 
 const RULE_LABELS = {
   VELOCITY_RULE:           { label: 'Velocity',           color: 'text-red-400    bg-red-500/10    border-red-500/20'    },
@@ -51,6 +49,12 @@ function AlertCard({ alert, onUpdate }) {
         setShowEscModal(false);
       }
       if (res?.data?.success) onUpdate(alert._id, action, res.data.data);
+      if (action === 'block_user' || action === 'block_device') {
+        const { transactionsRejected = 0, alertsResolved = 0 } = res?.data?.data || {};
+        if (transactionsRejected || alertsResolved) {
+          console.info(`Block cascaded: ${transactionsRejected} transaction(s) rejected, ${alertsResolved} alert(s) resolved.`);
+        }
+      }
     } catch (err) {
       console.error(err.response?.data?.message || err.message);
     } finally {
@@ -261,21 +265,26 @@ export default function Alerts() {
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
-    socketRef.current = io(SOCKET_URL);
+    socketRef.current = getSocket();
     const s = socketRef.current;
 
-    s.on('new-fraud-alert', ({ alert }) => {
+    const handleNewAlert = ({ alert }) => {
       if (filter === 'open' || filter === 'all') {
         setAlerts(prev => [alert, ...prev]);
       }
       setCounts(prev => ({ ...prev, open: (prev.open||0)+1, total: (prev.total||0)+1 }));
-    });
-
-    s.on('alert-updated', (updated) => {
+    };
+    const handleAlertUpdated = (updated) => {
       setAlerts(prev => prev.map(a => a._id === updated._id ? { ...a, ...updated } : a));
-    });
+    };
 
-    return () => s.disconnect();
+    s.on('new-fraud-alert', handleNewAlert);
+    s.on('alert-updated', handleAlertUpdated);
+
+    return () => {
+      s.off('new-fraud-alert', handleNewAlert);
+      s.off('alert-updated', handleAlertUpdated);
+    };
   }, [filter]);
 
   const handleUpdate = (id, action) => {

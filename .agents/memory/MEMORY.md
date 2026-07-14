@@ -1,1 +1,2 @@
 - [PayGuard project setup](payguard-setup.md) — 3-part fraud-detection app (client/server/fraud-engine); client+server run via Vite proxy on port 5000, fraud-engine (Java) intentionally not yet wired up.
+- [Mongo transaction duplicate-key](mongo-transaction-duplicate-key.md) — catching E11000 inside session.withTransaction() still poisons the session; pre-check existence instead of catch-and-continue.

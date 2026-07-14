@@ -1,19 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { io } from 'socket.io-client';
+import { getSocket } from '../api/socket';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
-
+// Uses the single shared, authenticated socket connection (api/socket.js)
+// instead of opening a new one per component.
 export const useSocket = () => {
-  const socketRef  = useRef(null);
-  const [connected, setConnected] = useState(false);
+  const socketRef  = useRef(getSocket());
+  const [connected, setConnected] = useState(socketRef.current.connected);
 
   useEffect(() => {
-    socketRef.current = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
-
-    socketRef.current.on('connect',    () => setConnected(true));
-    socketRef.current.on('disconnect', () => setConnected(false));
-
-    return () => { socketRef.current?.disconnect(); };
+    const s = socketRef.current;
+    s.on('connect',    () => setConnected(true));
+    s.on('disconnect', () => setConnected(false));
+    return () => { s.off('connect'); s.off('disconnect'); };
   }, []);
 
   return { socket: socketRef.current, connected };

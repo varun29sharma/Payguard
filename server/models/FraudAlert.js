@@ -12,7 +12,14 @@ const fraudAlertSchema = new mongoose.Schema({
   },
   userId: { type: String, required: true, index: true },
   merchantId: { type: String },
-  deviceId: { type: String },
+  deviceId: { type: String, index: true },
+  accountId: { type: String, index: true, sparse: true },
+  fingerprint: { type: String, index: true, sparse: true },
+  sessionId: { type: String, index: true, sparse: true },
+  ipAddress: { type: String, index: true, sparse: true },
+  walletId: { type: String, index: true, sparse: true },
+  email: { type: String, index: true, sparse: true },
+  phone: { type: String, index: true, sparse: true },
   amount: { type: Number },
   location: {
     city: String,
@@ -33,7 +40,11 @@ const fraudAlertSchema = new mongoose.Schema({
   escalatedAt: { type: Date },
   escalationNotes: { type: String }
 }, {
-  timestamps: true
+  timestamps: true,
+  // Optimistic concurrency: two analysts racing to resolve/escalate the same
+  // alert now get a VersionError (mapped to HTTP 409) on the loser instead of
+  // silently overwriting each other's decision.
+  optimisticConcurrency: true,
 });
 
 fraudAlertSchema.index({ createdAt: -1 });

@@ -6,11 +6,15 @@
 const FraudAlert = require('../models/FraudAlert');
 const Transaction = require('../models/Transaction');
 const Campaign = require('../models/Campaign');
+const { eventBus, EVENTS } = require('../events/eventBus');
 
 const CAMPAIGN_WINDOW_MS = 60 * 60 * 1000; // 1 hour look-back window
 const MIN_ALERTS_FOR_CAMPAIGN = 3;
 
-const detectCampaigns = async (io) => {
+// No longer takes `io` — campaign events flow through the central event bus
+// (see events/socketBridge.js) instead of every caller having to thread a
+// socket instance through. Callers now just: detectCampaigns().
+const detectCampaigns = async () => {
   try {
     const since = new Date(Date.now() - CAMPAIGN_WINDOW_MS);
 
@@ -151,10 +155,10 @@ const detectCampaigns = async (io) => {
           totalAmount: campaignData.totalAmount,
           severity: campaignData.severity
         });
-        if (io) io.emit('campaign-updated', { ...campaignData, _id: existing._id });
+        eventBus.emit(EVENTS.CAMPAIGN_UPDATED, { ...campaignData, _id: existing._id });
       } else {
         const saved = await Campaign.create(campaignData);
-        if (io) io.emit('new-campaign', saved);
+        eventBus.emit(EVENTS.CAMPAIGN_NEW, saved);
       }
     }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
+import { getSocket } from '../api/socket';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
@@ -158,14 +158,16 @@ export default function Dashboard() {
 
   // WebSocket
   useEffect(() => {
-    socketRef.current = io(SOCKET_URL, { transports: ['websocket', 'polling'] });
+    socketRef.current = getSocket();
     const s = socketRef.current;
 
-    s.on('connect',    () => setConnected(true));
-    s.on('disconnect', () => setConnected(false));
+    const handleConnect = () => setConnected(true);
+    const handleDisconnect = () => setConnected(false);
+    s.on('connect',    handleConnect);
+    s.on('disconnect', handleDisconnect);
     setConnected(s.connected);
 
-    s.on('new-transaction', (txn) => {
+    const handleNewTransaction = (txn) => {
       setTransactions(prev => {
         const updated = [txn, ...prev].slice(0, 50);
         return updated;
@@ -187,9 +189,10 @@ export default function Dashboard() {
         }
         return [...prev, { hour: key, count: 1 }].sort((a,b) => a.hour.localeCompare(b.hour));
       });
-    });
+    };
+    s.on('new-transaction', handleNewTransaction);
 
-    s.on('new-fraud-alert', ({ transaction }) => {
+    const handleNewFraudAlert = ({ transaction }) => {
       if (!transaction) return;
       setStats(prev => {
         if (!prev) return prev;
@@ -200,9 +203,15 @@ export default function Dashboard() {
           clear:    transaction.fraudStatus === 'clear'   ? (prev.clear    || 0) + 1 : prev.clear,
         };
       });
-    });
+    };
+    s.on('new-fraud-alert', handleNewFraudAlert);
 
-    return () => s.disconnect();
+    return () => {
+      s.off('connect', handleConnect);
+      s.off('disconnect', handleDisconnect);
+      s.off('new-transaction', handleNewTransaction);
+      s.off('new-fraud-alert', handleNewFraudAlert);
+    };
   }, []);
 
   const refresh = async () => {
