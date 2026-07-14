@@ -1,0 +1,1 @@
+- [PayGuard project setup](payguard-setup.md) — 3-part fraud-detection app (client/server/fraud-engine); client+server run via Vite proxy on port 5000, fraud-engine (Java) intentionally not yet wired up.
