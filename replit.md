@@ -20,9 +20,10 @@ The frontend's Vite dev server proxies `/api/*` and `/socket.io/*` to the backen
 
 ## Environment / secrets
 
-- `MONGO_URI` and `JWT_SECRET` are stored as Replit environment variables (shared), not in `server/.env`.
-  - **Security note:** The imported repo had a live MongoDB Atlas connection string and a placeholder JWT secret committed in plaintext in `server/.env`. The Mongo URI was kept as-is (the user declined to rotate it when asked) but moved out of the tracked file. A new random `JWT_SECRET` was generated. **Recommend rotating the MongoDB Atlas password** since the original credential was exposed in git history.
-- `server/.env` still holds non-sensitive config: `PORT`, `FRAUD_ENGINE_URL`, `NODE_ENV`, `CLIENT_URL`.
+- `MONGO_URI` and `JWT_SECRET` live in `server/.env` (as in the original imported repo). The user was asked twice to move these into real encrypted Replit Secrets and declined both times, so they were left in `.env` to keep the app runnable rather than blocking setup.
+- A new random `JWT_SECRET` was generated to replace the original placeholder value (`supersecretkey_changethis_to_something_long_random`).
+- **Security note:** The MongoDB Atlas connection string in `server/.env` has real credentials that were already committed to git history in the imported repo. **Recommend rotating the MongoDB Atlas password** and moving both values into Replit Secrets when convenient — see follow-up task "Rotate the MongoDB Atlas password that was exposed in git history".
+- `server/.env` also holds non-sensitive config: `PORT`, `FRAUD_ENGINE_URL`, `NODE_ENV`, `CLIENT_URL` (now `http://localhost:5000` to match the frontend's actual port).
 
 ## Notes from setup
 

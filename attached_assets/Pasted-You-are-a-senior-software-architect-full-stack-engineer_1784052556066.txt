@@ -1,0 +1,604 @@
+You are a senior software architect, full-stack engineer, and UI/UX designer.
+
+Project:
+https://github.com/varun29sharma/Payguard
+
+Your task is NOT to patch the project.
+
+Your task is to redesign and refactor it into a production-ready Fraud Detection Dashboard while preserving existing functionality.
+
+=====================================================
+OBJECTIVES
+=====================================================
+
+1. Fix all backend consistency bugs.
+2. Remove race conditions.
+3. Make blocklist enforcement atomic.
+4. Synchronize frontend and backend in realtime.
+5. Modernize the entire UI.
+6. Keep the code clean, modular and scalable.
+7. Do not break existing APIs unless absolutely necessary.
+
+=====================================================
+BUG #1
+Block vs Review Queue Leak
+=====================================================
+
+Current Problem:
+
+When an analyst blocks a user, their existing Pending or Review Required transactions remain inside the review queue.
+
+Expected Behaviour:
+
+The moment an entity becomes BLOCKED:
+
+• Find ALL transactions belonging to that entity.
+
+Including:
+
+- user_id
+- account_id
+- device_id
+- fingerprint
+- session_id
+- ip_address
+- wallet_id
+- email
+- phone
+
+Immediately update every transaction that is still
+
+PENDING
+UNDER_REVIEW
+FLAGGED
+
+to
+
+REJECTED
+
+or
+
+DROPPED
+
+depending on business rules.
+
+The dashboard should immediately remove these transactions from the Review Queue.
+
+Implement this as a proper service layer operation instead of requiring manual cleanup.
+
+=====================================================
+BUG #2
+Race Condition
+=====================================================
+
+Current Problem:
+
+If a transaction begins processing before the analyst blocks the user, it can still complete.
+
+Fix:
+
+Introduce a final authorization checkpoint.
+
+Transaction lifecycle should become:
+
+Receive Request
+
+↓
+
+Validate
+
+↓
+
+Fraud Score
+
+↓
+
+Review
+
+↓
+
+FINAL BLOCKLIST VALIDATION
+
+↓
+
+Execute
+
+↓
+
+Completed
+
+The system MUST re-check the blocklist immediately before committing any transaction.
+
+If blocked:
+
+Abort transaction
+
+Rollback if necessary
+
+Mark transaction REJECTED
+
+Emit websocket event
+
+Return HTTP 403
+
+No blocked transaction should ever succeed.
+
+=====================================================
+BUG #3
+Realtime Cache Desynchronization
+=====================================================
+
+Current Problem:
+
+Backend updates correctly.
+
+Frontend still shows stale data until refresh.
+
+Implement:
+
+Socket.io events
+
+BLOCK_CREATED
+
+BLOCK_REMOVED
+
+TRANSACTION_UPDATED
+
+QUEUE_UPDATED
+
+DASHBOARD_STATS_UPDATED
+
+Whenever blocklist changes:
+
+Invalidate cache
+
+Refresh React Query / Redux / Context
+
+Update:
+
+Review Queue
+
+Threat Intelligence
+
+Fraud Analytics
+
+User Profile
+
+Dashboard statistics
+
+Everything should update without refreshing.
+
+=====================================================
+BUG #4
+Fragmented Entity Blocking
+=====================================================
+
+Current implementation blocks only User ID.
+
+Instead implement Connected Entity Blocking.
+
+Build an Identity Graph.
+
+Every fraud profile contains
+
+user_id
+
+device_ids[]
+
+fingerprints[]
+
+emails[]
+
+phones[]
+
+wallets[]
+
+cards[]
+
+ip_addresses[]
+
+session_tokens[]
+
+When blocking any node:
+
+Traverse connected graph.
+
+Block every linked identifier.
+
+Future incoming transactions matching ANY identifier must automatically fail.
+
+=====================================================
+DATABASE IMPROVEMENTS
+=====================================================
+
+Introduce proper indexes.
+
+Indexes:
+
+user_id
+
+device_id
+
+transaction_status
+
+risk_score
+
+created_at
+
+ip_address
+
+fingerprint
+
+Optimize dashboard queries.
+
+Avoid N+1 queries.
+
+Move business logic into services.
+
+Controllers should remain thin.
+
+=====================================================
+EVENT SYSTEM
+=====================================================
+
+Create centralized event emitter.
+
+Examples:
+
+BlockCreated
+
+BlockRemoved
+
+TransactionRejected
+
+ReviewQueueUpdated
+
+AnalystActionLogged
+
+DashboardMetricsUpdated
+
+Avoid duplicated websocket code.
+
+=====================================================
+AUDIT LOGGING
+=====================================================
+
+Every analyst action must create immutable audit logs.
+
+Include
+
+Timestamp
+
+Analyst
+
+Action
+
+Old Value
+
+New Value
+
+Reason
+
+Affected IDs
+
+=====================================================
+ERROR HANDLING
+=====================================================
+
+Replace generic errors.
+
+Create
+
+ValidationError
+
+ConflictError
+
+AuthorizationError
+
+FraudRuleError
+
+Global Error Handler
+
+=====================================================
+SECURITY
+=====================================================
+
+Sanitize all inputs.
+
+Prevent duplicate block operations.
+
+Protect websocket events.
+
+Validate payloads.
+
+Use optimistic locking where needed.
+
+=====================================================
+UI REDESIGN
+=====================================================
+
+Completely redesign the frontend.
+
+DO NOT create another generic fintech dashboard.
+
+Instead use the visual language of the attached inspiration image.
+
+The attached image represents a pixel-art software office.
+
+Use that as the inspiration.
+
+=====================================================
+UI STYLE
+=====================================================
+
+Theme:
+
+Pixel-art
+
+Retro software company
+
+Game-like
+
+Developer office
+
+Warm wooden flooring
+
+Blue office walls
+
+Cute developer avatars
+
+Software stations
+
+Animated environment
+
+Like a management simulation game.
+
+The application should feel like running a Fraud Operations Center rather than viewing spreadsheets.
+
+=====================================================
+DESIGN SYSTEM
+=====================================================
+
+Primary Colors
+
+#4A90E2
+
+#6FA8FF
+
+#C89F6A
+
+#8B5A2B
+
+#F7F2E8
+
+Accent
+
+#00D26A
+
+#FFB84D
+
+#FF5B5B
+
+Background
+
+Soft cream
+
+Light wood
+
+Pixel shadows
+
+Rounded panels
+
+=====================================================
+HOME DASHBOARD
+=====================================================
+
+Transform the dashboard into a virtual operations office.
+
+Instead of boring cards:
+
+Create departments.
+
+Examples:
+
+Threat Intelligence Room
+
+Fraud Review Desk
+
+AI Risk Engine
+
+Live Transactions
+
+Documentation
+
+Analytics Room
+
+Block Center
+
+Alert Center
+
+Each department becomes an interactive card.
+
+Hover animations.
+
+Pixel icons.
+
+NPC-style analyst avatars.
+
+=====================================================
+LIVE ACTIVITY
+=====================================================
+
+Animated transaction flow.
+
+Transactions should move visually.
+
+Green
+
+Approved
+
+Yellow
+
+Review
+
+Red
+
+Blocked
+
+=====================================================
+ANALYST WORKBENCH
+=====================================================
+
+Looks like an office desk.
+
+Incoming cases appear as folders.
+
+Buttons become keyboard keys.
+
+Risk meter becomes animated.
+
+=====================================================
+BLOCKLIST PAGE
+=====================================================
+
+Looks like a security control room.
+
+Blocked identities displayed as security badges.
+
+Search resembles terminal.
+
+=====================================================
+ANALYTICS
+=====================================================
+
+Animated charts.
+
+Pixel widgets.
+
+Growing graphs.
+
+Smooth transitions.
+
+=====================================================
+MICRO ANIMATIONS
+=====================================================
+
+Walking avatars.
+
+Blinking server LEDs.
+
+Moving transaction packets.
+
+Typing animation.
+
+Loading terminal.
+
+Hover bounce.
+
+Smooth card movement.
+
+=====================================================
+TYPOGRAPHY
+=====================================================
+
+Use modern readable fonts.
+
+Headers:
+
+Press Start 2P (or similar pixel font)
+
+Body:
+
+Inter
+
+Buttons:
+
+Bold rounded.
+
+=====================================================
+RESPONSIVE
+=====================================================
+
+Desktop
+
+Tablet
+
+Mobile
+
+Maintain same visual identity.
+
+=====================================================
+CODE QUALITY
+=====================================================
+
+Use reusable React components.
+
+Create:
+
+components/
+
+layouts/
+
+hooks/
+
+services/
+
+stores/
+
+utils/
+
+types/
+
+Use TypeScript strict mode if available.
+
+=====================================================
+FINAL RESULT
+=====================================================
+
+The application should feel like:
+
+A modern SOC (Security Operations Center)
+
++
+
+GitHub
+
++
+
+Notion
+
++
+
+Stardew Valley
+
++
+
+Game Dev Tycoon
+
++
+
+Pixel software office
+
+NOT
+
+A generic admin dashboard.
+
+=====================================================
+DELIVERABLES
+=====================================================
+
+1. Fix every backend issue.
+
+2. Refactor architecture.
+
+3. Improve database.
+
+4. Improve websocket architecture.
+
+5. Redesign UI completely.
+
+6. Maintain all existing features.
+
+7. Keep project production-ready.
+
+8. Explain every major architectural change inside comments where necessary.
