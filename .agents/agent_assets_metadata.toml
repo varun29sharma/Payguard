@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "UlW-14LHAyn2nU2YiluX2"
+uri = "file://README.md"
+type = "text"
+title = "PayGuard — Change Log & Architecture Deep Dive"
