@@ -1,42 +1,25 @@
-@import url('https://fonts.googleapis.com/css2?family=DotGothic16&family=Pixelify+Sans:wght@400;500;600;700&family=VT323&family=JetBrains+Mono:wght@400;500;600;700;800&family=Silkscreen&display=swap');
 @import "tailwindcss";
 
+/* Class-based dark mode: utilities get dark: variants when inside .dark. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --font-pixel: "Pixelify Sans", sans-serif;
-  --font-vt: "VT323", monospace;
-  --font-mono: "JetBrains Mono", monospace;
-  --font-silk: "Silkscreen", cursive;
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  --color-brand: #00ffcc;
-  --color-brand-dim: rgba(0, 255, 204, 0.1);
-  --color-bg-primary: #050508;
-  --color-bg-secondary: #0a0a10;
-  --color-bg-card: #0d0d16;
-  --color-bg-card2: #14141e;
-  --color-border-dim: #1a1a2e;
-  --color-border-mid: #2a2a40;
-  --color-border-hi: #4a4a6a;
-  
-  --color-text-pri: #e2e2ff;
-  --color-text-sec: #9a9aca;
-  --color-text-muted: #5a5a7a;
+  /* Swiss editorial palette — paper, ink, one punchy accent */
+  --color-paper: #faf9f6;
+  --color-card: #ffffff;
+  --color-ink: #161616;
+  --color-ink-soft: #3f3f3a;
+  --color-muted: #8b8b84;
+  --color-hairline: #e6e4dd;
+  --color-hairline-strong: #cfcdc4;
+  --color-accent: #ff3b00;
 
-  --animate-bob: bob 2s ease-in-out infinite;
-  --animate-shake: shake 0.4s cubic-bezier(.36,.07,.19,.97) infinite;
   --animate-blink: blink 1s step-end infinite;
-  --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-@keyframes bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-@keyframes shake {
-  10%, 90% { transform: translate3d(-1px, 0, 0); }
-  20%, 80% { transform: translate3d(2px, 0, 0); }
-  30%, 50%, 70% { transform: translate3d(-2px, 0, 0); }
-  40%, 60% { transform: translate3d(2px, 0, 0); }
-}
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
@@ -46,77 +29,132 @@
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
-    background-color: var(--color-bg-primary);
-    color: var(--color-text-pri);
-    font-family: var(--font-mono);
-    -webkit-font-smoothing: none;
-    image-rendering: pixelated;
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: var(--color-bg-primary); border-left: 2px solid var(--color-border-dim); }
-  ::-webkit-scrollbar-thumb { background: var(--color-border-mid); border: 2px solid var(--color-bg-primary); }
-  ::-webkit-scrollbar-thumb:hover { background: var(--color-border-hi); }
+  ::selection { background: var(--color-ink); color: var(--color-paper); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--color-paper); }
+  ::-webkit-scrollbar-thumb { background: var(--color-hairline-strong); border: 2px solid var(--color-paper); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
 }
 
 @layer utilities {
-  .pixel-box {
-    border: 2px solid var(--color-border-mid);
-    background-color: var(--color-bg-card);
-    box-shadow: 4px 4px 0 0 rgba(0,0,0,0.8);
-  }
-  .pixel-box-brand {
-    border: 2px solid var(--color-brand);
-    background-color: var(--color-bg-card);
-    box-shadow: 4px 4px 0 0 rgba(0,255,204,0.15);
-  }
-  .pixel-btn {
-    border: 2px solid var(--color-border-hi);
-    background-color: var(--color-bg-secondary);
-    box-shadow: 2px 2px 0 0 rgba(0,0,0,0.8);
-    transition: transform 0.1s, box-shadow 0.1s;
-    font-family: var(--font-pixel);
+  /* Micro label — the bamlab editorial voice */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-  }
-  .pixel-btn:active:not(:disabled) {
-    transform: translate(2px, 2px);
-    box-shadow: 0px 0px 0 0 rgba(0,0,0,0.8);
-  }
-  .pixel-btn:hover:not(:disabled) {
-    background-color: var(--color-border-dim);
-    border-color: var(--color-text-pri);
-  }
-  .pixel-btn-brand {
-    border: 2px solid var(--color-brand);
-    color: var(--color-brand);
-    background-color: var(--color-brand-dim);
-  }
-  .pixel-btn-brand:hover:not(:disabled) {
-    background-color: var(--color-brand);
-    color: #000;
+    color: var(--color-muted);
   }
 
-  .text-shadow-pixel {
-    text-shadow: 2px 2px 0 #000;
+  /* Buttons: solid ink, invert on hover */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.7rem 1.4rem;
+    border: 1px solid var(--color-ink);
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    cursor: pointer;
   }
-  
-  .crt-overlay {
-    pointer-events: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
-    background-size: 100% 4px;
-    z-index: 50;
+  .btn:hover:not(:disabled) { background: var(--color-accent); border-color: var(--color-accent); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-ink);
+    border-color: var(--color-hairline-strong);
   }
+  .btn-ghost:hover:not(:disabled) { background: var(--color-ink); border-color: var(--color-ink); }
+
+  .btn-accent {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+  .btn-accent:hover:not(:disabled) { background: var(--color-ink); border-color: var(--color-ink); }
+
+  .btn-sm { padding: 0.45rem 0.9rem; font-size: 12px; }
+
+  /* Cards: white field on paper, 1px hairline — no shadows, no rounding */
+  .card {
+    background: var(--color-card);
+    border: 1px solid var(--color-hairline);
+  }
+
+  /* Inputs: Swiss underline style */
+  .input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--color-hairline-strong);
+    padding: 0.55rem 0;
+    font-size: 15px;
+    color: var(--color-ink);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .input:focus { border-bottom-color: var(--color-ink); }
+  .input::placeholder { color: var(--color-muted); }
+
+  /* Tiny uppercase mono tag (statuses, rules) */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid var(--color-hairline-strong);
+  }
+
+  .link-btn {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    transition: color 0.15s;
+    cursor: pointer;
+  }
+  .link-btn:hover { color: var(--color-ink); }
 }
 
-/* Toast overrides for retro look */
+/* Dark theme — ink on paper, inverted */
+.dark {
+  color-scheme: dark;
+  --color-paper: #111110;
+  --color-card: #191918;
+  --color-ink: #f2efe8;
+  --color-ink-soft: #c9c6bd;
+  --color-muted: #8d8a80;
+  --color-hairline: #2a2a26;
+  --color-hairline-strong: #40403a;
+  --color-accent: #ff3b00;
+}
+
+/* Toast overrides — light editorial look */
 .hot-toast-custom {
-  background: #0d0d16 !important;
-  border: 2px solid #2a2a40 !important;
-  color: #e2e2ff !important;
-  font-family: 'Pixelify Sans', sans-serif !important;
-  font-size: 14px !important;
+  background: var(--color-card) !important;
+  border: 1px solid var(--color-hairline) !important;
+  color: var(--color-ink) !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 12px !important;
   border-radius: 0 !important;
-  box-shadow: 4px 4px 0 0 rgba(0,0,0,0.8) !important;
+  box-shadow: none !important;
   text-transform: uppercase;
+  letter-spacing: 0.06em;
 }

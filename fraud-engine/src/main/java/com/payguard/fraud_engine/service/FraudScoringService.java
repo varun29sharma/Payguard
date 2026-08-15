@@ -4,7 +4,6 @@ import com.payguard.fraud_engine.model.*;
 import com.payguard.fraud_engine.rules.FraudRule;
 import org.springframework.stereotype.Service;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class FraudScoringService {
@@ -15,11 +14,14 @@ public class FraudScoringService {
     }
 
     public FraudResult score(TransactionRequest txn) {
-        List<FraudResult.RuleResult> triggered = rules.stream()
-                .map(rule -> rule.evaluate(txn))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(Collectors.toList());
+        List<FraudResult.RuleResult> triggered = new ArrayList<>();
+        for (FraudRule rule : rules) {
+            RuleConfig config = resolveConfig(txn, rule.getRuleName());
+            // A rule explicitly disabled in the per-request config is skipped
+            // entirely — its stateful window does not even advance.
+            if (!config.isEnabled()) continue;
+            rule.evaluate(txn, config).ifPresent(triggered::add);
+        }
 
         int finalScore = triggered.isEmpty() ? 0 : (int) triggered.stream()
                 .mapToInt(FraudResult.RuleResult::getScore)
@@ -36,5 +38,18 @@ public class FraudScoringService {
                 .status(status)
                 .rulesTriggered(triggered)
                 .build();
+    }
+
+    /**
+     * Finds the per-request config for a rule. Never returns null: absent
+     * config means "run with built-in defaults", which rules can rely on.
+     */
+    private RuleConfig resolveConfig(TransactionRequest txn, String ruleName) {
+        if (txn.getRules() != null) {
+            for (RuleConfig c : txn.getRules()) {
+                if (c != null && ruleName.equals(c.getRuleName())) return c;
+            }
+        }
+        return new RuleConfig(ruleName, true, null, null);
     }
 }

@@ -2,6 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const Transaction = require('../models/Transaction');
 const FraudAlert = require('../models/FraudAlert');
 const { callFraudEngine } = require('../utils/fraudEngineClient');
+const { recordScoringFallback } = require('./engineHealthService');
 const { detectCampaigns } = require('./campaignDetector');
 const { isAnyIdentifierBlocked } = require('./blocklistService');
 const { extractIdentifiers } = require('./identityGraphService');
@@ -31,6 +32,12 @@ const buildTransactionInput = (body) => {
   };
   for (const field of OPTIONAL_IDENTITY_FIELDS) {
     if (body[field] !== undefined && body[field] !== null && body[field] !== '') input[field] = String(body[field]);
+  }
+  // P2P recipient — the account that received the funds (mule detection needs
+  // to see inbound flows, not just who paid). Not an identity of the payer,
+  // so deliberately NOT part of OPTIONAL_IDENTITY_FIELDS / the blocklist graph.
+  if (body.beneficiaryId !== undefined && body.beneficiaryId !== null && body.beneficiaryId !== '') {
+    input.beneficiaryId = String(body.beneficiaryId);
   }
   return input;
 };
@@ -68,10 +75,15 @@ const createTransaction = async (body) => {
   // STEP 2 — fraud scoring (network round-trip; this is the race window).
   const draft = { transactionId: uuidv4(), ...input, timestamp: new Date() };
   let fraudResult = { score: 0, status: 'clear', rulesTriggered: [] };
+  let scoringEngine = 'engine';
   try {
     fraudResult = await callFraudEngine(draft);
   } catch (e) {
+    // Engine down/overloaded — record the fallback so the UI can flag that
+    // transactions are being let through unscored, then default to clear.
+    scoringEngine = 'fallback';
     console.warn('Fraud engine unavailable, defaulting to clear:', e.message);
+    recordScoringFallback(e.code || e.cause?.code || e.message || 'unknown error');
   }
 
   // STEP 3 — FINAL AUTHORIZATION CHECKPOINT (Bug #2). Re-check right before
@@ -88,6 +100,7 @@ const createTransaction = async (body) => {
     fraudScore: fraudResult.score,
     fraudStatus: fraudResult.status,
     rulesTriggered: fraudResult.rulesTriggered,
+    scoringEngine,
   });
 
   let alert = null;

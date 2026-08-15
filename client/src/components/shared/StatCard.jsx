@@ -4,29 +4,26 @@ export default function StatCard({ label, value, accent, icon, sub, trend }) {
   const animated = useCountUp(typeof value === 'number' ? value : 0);
 
   const accentMap = {
-    brand:  { border: 'border-brand',     text: 'text-brand',      bg: 'bg-brand-dim' },
-    amber:  { border: 'border-amber-500', text: 'text-amber-400',  bg: 'bg-amber-500/10' },
-    red:    { border: 'border-red-500',   text: 'text-red-400',    bg: 'bg-red-500/10' },
-    purple: { border: 'border-purple-500',text: 'text-purple-400', bg: 'bg-purple-500/10' },
-    blue:   { border: 'border-blue-500',  text: 'text-blue-400',   bg: 'bg-blue-500/10' },
+    brand:  'text-ink',
+    amber:  'text-amber-600 dark:text-amber-400',
+    red:    'text-accent',
+    purple: 'text-purple-700 dark:text-purple-400',
+    blue:   'text-blue-700 dark:text-blue-400',
   };
-  const a = accentMap[accent] || accentMap.brand;
+  const valueColor = accentMap[accent] || accentMap.brand;
 
   return (
-    <div className={`pixel-box p-4 border-2 ${a.border} relative group overflow-hidden`}>
-      <div className={`absolute top-0 right-0 w-8 h-8 ${a.bg} border-b-2 border-l-2 ${a.border} flex items-center justify-center font-vt text-lg`}>
-        {icon || '+'}
+    <div className="border-t-2 border-ink pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="label">{label}</div>
+        {icon && <span className="text-[13px] font-mono text-muted leading-none">{icon}</span>}
       </div>
-      
-      <div className="text-sm font-pixel text-text-sec uppercase tracking-widest mb-4 pr-6">
-        {label}
-      </div>
-      <div className={`text-4xl font-vt ${a.text} text-shadow-pixel mb-1`}>
+      <div className={`text-5xl font-extrabold tracking-tight leading-none ${valueColor}`}>
         {typeof value === 'number' ? animated.toLocaleString() : value}
       </div>
-      {sub && <div className="text-[10px] font-mono text-text-muted uppercase">{sub}</div>}
+      {sub && <div className="label mt-2">{sub}</div>}
       {trend !== undefined && (
-        <div className={`text-[10px] font-mono mt-2 ${trend > 0 ? 'text-red-400' : 'text-brand'}`}>
+        <div className={`text-[11px] font-mono mt-2 uppercase ${trend > 0 ? 'text-accent' : 'text-ink-soft'}`}>
           {trend > 0 ? '↑' : '↓'} {Math.abs(trend)}% vs last hr
         </div>
       )}

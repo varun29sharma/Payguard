@@ -44,8 +44,9 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, data: entry });
 }));
 
-// GET /api/blocklist/check/:type/:value
-router.get('/check/:type/:value', asyncHandler(async (req, res) => {
+// GET /api/blocklist/check/:type/:value — protected: reveals blocklist state,
+// so it requires an authenticated analyst (not anonymous callers).
+router.get('/check/:type/:value', protect, asyncHandler(async (req, res) => {
   const { type, value } = req.params;
   if (!IDENTITY_FIELDS.includes(type)) throw new ValidationError(`type must be one of: ${IDENTITY_FIELDS.join(', ')}`);
   const entry = await BlockList.findOne({ type, value: String(value), isActive: true });

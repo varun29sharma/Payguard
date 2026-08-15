@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  ShieldAlert, UserX, Smartphone, AlertTriangle,
-  CheckCircle, XCircle, ChevronDown, ChevronUp,
-  Clock, DollarSign, MapPin, Cpu
+  UserX, Smartphone, AlertTriangle,
+  CheckCircle, XCircle, ChevronDown, ChevronUp
 } from 'lucide-react';
 import Layout from '../components/shared/Layout';
 import StatusBadge from '../components/shared/StatusBadge';
@@ -11,14 +10,22 @@ import { SkeletonAlertCard } from '../components/shared/Skeleton';
 import api from '../api/axiosConfig';
 import { getSocket } from '../api/socket';
 
+const DARK_CHIP = {
+  red:    'dark:text-red-300 dark:border-red-800 dark:bg-red-950/40',
+  purple: 'dark:text-purple-300 dark:border-purple-800 dark:bg-purple-950/40',
+  amber:  'dark:text-amber-300 dark:border-amber-800 dark:bg-amber-950/40',
+  blue:   'dark:text-blue-300 dark:border-blue-800 dark:bg-blue-950/40',
+  orange: 'dark:text-orange-300 dark:border-orange-800 dark:bg-orange-950/40',
+};
+
 const RULE_LABELS = {
-  VELOCITY_RULE:           { label: 'VELOCITY_CHK',     color: 'text-red-400 bg-red-500/10 border-red-500'    },
-  ENUMERATION_ATTACK_RULE: { label: 'ENUM_ATTACK',      color: 'text-purple-400 bg-purple-500/10 border-purple-500' },
-  AMOUNT_THRESHOLD_RULE:   { label: 'AMT_THRESH',       color: 'text-amber-400 bg-amber-500/10 border-amber-500'  },
-  GEOGRAPHIC_ANOMALY_RULE: { label: 'GEO_ANOMALY',      color: 'text-blue-400 bg-blue-500/10 border-blue-500'   },
-  NEW_DEVICE_RULE:         { label: 'NEW_DEVICE',       color: 'text-orange-400 bg-orange-500/10 border-orange-500' },
-  NIGHT_OWL_RULE:          { label: 'NIGHT_OWL',        color: 'text-brand bg-brand-dim border-brand' },
-  BLOCK_LIST:              { label: 'BLOCK_LST_HIT',    color: 'text-red-500 bg-red-500/20 border-red-500 font-bold'    },
+  VELOCITY_RULE:           { label: 'VELOCITY',     color: `text-red-700 border-red-300 bg-red-50 ${DARK_CHIP.red}` },
+  ENUMERATION_ATTACK_RULE: { label: 'ENUMERATION',  color: `text-purple-700 border-purple-300 bg-purple-50 ${DARK_CHIP.purple}` },
+  AMOUNT_THRESHOLD_RULE:   { label: 'AMOUNT',       color: `text-amber-700 border-amber-300 bg-amber-50 ${DARK_CHIP.amber}` },
+  GEOGRAPHIC_ANOMALY_RULE: { label: 'GEO ANOMALY',  color: `text-blue-700 border-blue-300 bg-blue-50 ${DARK_CHIP.blue}` },
+  NEW_DEVICE_RULE:         { label: 'NEW DEVICE',   color: `text-orange-700 border-orange-300 bg-orange-50 ${DARK_CHIP.orange}` },
+  NIGHT_OWL_RULE:          { label: 'NIGHT OWL',    color: 'text-ink border-hairline-strong bg-paper' },
+  BLOCK_LIST:              { label: 'BLOCKLIST',    color: 'text-accent border-accent/40 bg-accent/5' },
 };
 
 function AlertCard({ alert, onUpdate }) {
@@ -29,12 +36,11 @@ function AlertCard({ alert, onUpdate }) {
   const [timeline,  setTimeline]  = useState(null);
   const [loadingTl, setLoadingTl] = useState(false);
 
-  const txn = alert.transaction;
   const isOpen = alert.status === 'open';
 
-  const scoreColor = alert.fraudScore >= 70 ? 'border-red-500'
-                   : alert.fraudScore >= 40 ? 'border-amber-500'
-                   : 'border-brand';
+  const scoreColor = alert.fraudScore >= 70 ? 'border-accent'
+                   : alert.fraudScore >= 40 ? 'border-amber-400'
+                   : 'border-hairline-strong';
 
   const act = async (action, extra = {}) => {
     setLoading(true);
@@ -71,22 +77,14 @@ function AlertCard({ alert, onUpdate }) {
   };
 
   return (
-    <div className={`pixel-box border-2 ${scoreColor} relative overflow-hidden mb-4`}>
-      {/* Tape mark visual */}
-      <div className={`absolute top-0 right-0 w-12 h-12 bg-bg-card border-b-2 border-l-2 ${scoreColor} flex items-center justify-center font-vt text-xl font-bold`}>
-        !
-      </div>
-      
-      <div className="p-5">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <h3 className="text-xl font-vt text-text-pri tracking-widest">ID:{alert.userId}</h3>
-            <StatusBadge status={alert.status} />
-            <FraudScore score={alert.fraudScore} />
-          </div>
-          
-          <div className="flex flex-wrap gap-4 text-xs font-mono text-text-sec bg-bg-secondary p-2 border border-border-dim w-fit">
-            {alert.amount && <span className="text-brand">AMT: ₹{Number(alert.amount).toLocaleString()}</span>}
+    <div className={`card border-l-2 ${scoreColor}`}>
+      <div className="p-6">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h3 className="text-xl font-bold tracking-tight font-mono">ID: {alert.userId}</h3>
+          <StatusBadge status={alert.status} />
+          <FraudScore score={alert.fraudScore} />
+          <div className="flex flex-wrap gap-x-5 gap-y-1 ml-auto text-xs font-mono text-ink-soft">
+            {alert.amount && <span>AMT: ₹{Number(alert.amount).toLocaleString()}</span>}
             {alert.merchantId && <span>MERCH: {alert.merchantId}</span>}
             {alert.location?.city && <span>LOC: {alert.location.city}</span>}
             <span>TIME: {new Date(alert.createdAt).toLocaleTimeString()}</span>
@@ -97,11 +95,11 @@ function AlertCard({ alert, onUpdate }) {
         {alert.rulesTriggered?.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             {alert.rulesTriggered.map((r, i) => {
-              const meta = RULE_LABELS[r.ruleName] || { label: r.ruleName, color: 'text-text-sec border-text-muted bg-bg-primary' };
+              const meta = RULE_LABELS[r.ruleName] || { label: r.ruleName, color: 'text-muted border-hairline-strong bg-paper' };
               return (
-                <div key={i} className={`text-[10px] px-2 py-1 border-2 font-pixel tracking-widest flex items-center gap-2 ${meta.color}`}>
-                  <span>{meta.label}</span>
-                  <span className="opacity-70 font-mono">SCR:{r.score}</span>
+                <div key={i} className={`tag ${meta.color}`}>
+                  {meta.label}
+                  <span className="ml-2 opacity-70">SCR: {r.score}</span>
                 </div>
               );
             })}
@@ -109,74 +107,73 @@ function AlertCard({ alert, onUpdate }) {
         )}
 
         {/* Actions */}
-        <div className="mt-5 pt-4 border-t-2 border-border-dim flex flex-wrap gap-3 items-center">
+        <div className="mt-6 pt-5 border-t border-hairline flex flex-wrap gap-3 items-center">
           {isOpen ? (
             <>
-              <button onClick={() => act('resolve')} disabled={loading} className="pixel-btn px-3 py-2 flex items-center gap-2 text-green-400 border-green-500/50 hover:bg-green-500/10 text-xs">
-                <CheckCircle size={14} /> CLR_ALERT
+              <button onClick={() => act('resolve')} disabled={loading} className="btn btn-ghost btn-sm text-green-700 border-green-300 hover:bg-green-50 hover:border-green-600 hover:text-green-800 dark:text-green-300 dark:border-green-800 dark:hover:bg-green-950/40">
+                <CheckCircle size={13} /> Resolve
               </button>
-              <button onClick={() => act('false_positive')} disabled={loading} className="pixel-btn px-3 py-2 flex items-center gap-2 text-text-sec text-xs">
-                <XCircle size={14} /> FALSE_POS
+              <button onClick={() => act('false_positive')} disabled={loading} className="btn btn-ghost btn-sm">
+                <XCircle size={13} /> False positive
               </button>
-              <button onClick={() => act('block_user', { reason: `Score ${alert.fraudScore}` })} disabled={loading} className="pixel-btn px-3 py-2 flex items-center gap-2 text-red-400 border-red-500/50 hover:bg-red-500/10 text-xs">
-                <UserX size={14} /> BLK_USR
+              <button onClick={() => act('block_user', { reason: `Score ${alert.fraudScore}` })} disabled={loading} className="btn btn-sm btn-accent">
+                <UserX size={13} /> Block user
               </button>
               {alert.deviceId && alert.deviceId !== 'unknown' && (
-                <button onClick={() => act('block_device', { reason: `Score ${alert.fraudScore}` })} disabled={loading} className="pixel-btn px-3 py-2 flex items-center gap-2 text-orange-400 border-orange-500/50 hover:bg-orange-500/10 text-xs">
-                  <Smartphone size={14} /> BLK_DEV
+                <button onClick={() => act('block_device', { reason: `Score ${alert.fraudScore}` })} disabled={loading} className="btn btn-sm">
+                  <Smartphone size={13} /> Block device
                 </button>
               )}
-              <button onClick={() => setShowEscModal(true)} disabled={loading} className="pixel-btn px-3 py-2 flex items-center gap-2 text-purple-400 border-purple-500/50 hover:bg-purple-500/10 text-xs">
-                <AlertTriangle size={14} /> ESCALATE
+              <button onClick={() => setShowEscModal(true)} disabled={loading} className="btn btn-ghost btn-sm text-purple-700 border-purple-300 hover:bg-purple-50 hover:border-purple-600 hover:text-purple-800 dark:text-purple-300 dark:border-purple-800 dark:hover:bg-purple-950/40">
+                <AlertTriangle size={13} /> Escalate
               </button>
             </>
           ) : (
-            <div className="text-xs font-mono text-text-muted">
-              {alert.resolvedBy && `[RESOLVED_BY: ${alert.resolvedBy}]`}
-              {alert.escalatedBy && `[ESCALATED_BY: ${alert.escalatedBy}]`}
+            <div className="text-xs font-mono text-muted">
+              {alert.resolvedBy && `[RESOLVED BY: ${alert.resolvedBy}]`}
+              {alert.escalatedBy && `[ESCALATED BY: ${alert.escalatedBy}]`}
             </div>
           )}
-          
-          <button onClick={loadTimeline} disabled={loadingTl} className="pixel-btn px-3 py-2 ml-auto flex items-center gap-2 text-brand border-brand/50 text-xs">
-            {loadingTl ? 'WAIT...' : 'GET_TIMELINE'}
-            {expanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+
+          <button onClick={loadTimeline} disabled={loadingTl} className="btn btn-ghost btn-sm ml-auto">
+            {loadingTl ? 'Loading…' : 'Timeline (24h)'}
+            {expanded ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}
           </button>
         </div>
       </div>
 
       {/* Escalate Modal */}
       {showEscModal && (
-        <div className="p-4 border-t-2 border-purple-500/50 bg-purple-500/5">
-          <div className="text-sm font-pixel text-purple-400 tracking-widest mb-2">ESCALATION_REASON:</div>
+        <div className="p-5 border-t border-accent/30 bg-accent/5">
+          <div className="label text-accent mb-2">Escalation reason</div>
           <textarea
             value={escNotes} onChange={e => setEscNotes(e.target.value)}
-            className="w-full bg-bg-primary border-2 border-purple-500/50 p-3 text-xs font-mono text-text-pri focus:outline-none focus:border-purple-400 resize-none h-20"
-            placeholder="ENTER REASON..."
+            className="input resize-none h-20"
+            placeholder="Why is this being escalated?"
           />
           <div className="flex gap-3 mt-3">
-            <button onClick={() => act('escalate')} disabled={loading} className="pixel-btn px-4 py-2 text-purple-400 border-purple-500 text-xs">CONFIRM</button>
-            <button onClick={() => setShowEscModal(false)} className="pixel-btn px-4 py-2 text-text-sec text-xs">CANCEL</button>
+            <button onClick={() => act('escalate')} disabled={loading} className="btn btn-sm btn-accent">Confirm</button>
+            <button onClick={() => setShowEscModal(false)} className="btn btn-sm btn-ghost">Cancel</button>
           </div>
         </div>
       )}
 
       {/* Timeline */}
       {expanded && timeline && (
-        <div className="border-t-2 border-border-dim bg-bg-secondary p-5">
-          <div className="text-sm font-pixel text-text-sec tracking-widest mb-4">TIMELINE_24H</div>
-          
-          <div className="flex gap-6 mb-4 font-mono text-xs border border-border-dim p-3 bg-bg-card">
-            <div><span className="text-text-muted">TOT_TXN:</span> <span className="text-text-pri">{timeline.summary?.total}</span></div>
-            <div><span className="text-text-muted">FLAGGED:</span> <span className="text-amber-400">{timeline.summary?.flagged}</span></div>
-            <div><span className="text-text-muted">SPENT:</span> <span className="text-brand">₹{timeline.summary?.totalAmount}</span></div>
+        <div className="border-t border-hairline bg-paper p-6">
+          <div className="label mb-4">Timeline — 24h</div>
+
+          <div className="flex gap-8 mb-4 font-mono text-xs border border-hairline p-3 bg-card">
+            <div><span className="label mr-2">Total</span> <span className="font-semibold">{timeline.summary?.total}</span></div>                <div><span className="label mr-2">Flagged</span> <span className="font-semibold text-amber-600 dark:text-amber-400">{timeline.summary?.flagged}</span></div>
+            <div><span className="label mr-2">Spent</span> <span className="font-semibold tabular-nums">₹{timeline.summary?.totalAmount}</span></div>
           </div>
-          
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+
+          <div className="space-y-1 max-h-48 overflow-y-auto">
             {timeline.data?.map((t, i) => (
-              <div key={i} className={`flex items-center gap-4 p-2 border-l-2 text-xs font-mono ${t.fraudStatus !== 'clear' ? 'border-red-500 bg-red-500/5' : 'border-border-mid bg-bg-card'}`}>
-                <span className="text-text-muted">{new Date(t.timestamp).toLocaleTimeString()}</span>
-                <span className="text-text-sec w-24 truncate">{t.merchantId}</span>
-                <span className="text-brand w-20">₹{t.amount}</span>
+              <div key={i} className={`flex items-center gap-4 p-2 text-xs font-mono border-l-2 ${t.fraudStatus !== 'clear' ? 'border-accent bg-accent/5' : 'border-hairline'}`}>
+                <span className="text-muted">{new Date(t.timestamp).toLocaleTimeString()}</span>
+                <span className="text-ink-soft w-24 truncate">{t.merchantId}</span>
+                <span className="font-semibold w-20 tabular-nums">₹{t.amount}</span>
                 <FraudScore score={t.fraudScore} />
                 <StatusBadge status={t.fraudStatus} size="xs" />
               </div>
@@ -212,6 +209,7 @@ export default function Alerts() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional initial fetch of the queue
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
@@ -234,33 +232,28 @@ export default function Alerts() {
   };
 
   const TABS = [
-    { key: 'open',           label: `OPEN [${counts.open || 0}]` },
-    { key: 'escalated',      label: 'ESCALATED' },
-    { key: 'resolved',       label: 'RESOLVED'  },
-    { key: 'false_positive', label: 'FALSE_POS' },
-    { key: 'all',            label: `ALL [${counts.total || 0}]` },
+    { key: 'open',           label: `Open [${counts.open || 0}]` },
+    { key: 'escalated',      label: 'Escalated' },
+    { key: 'resolved',       label: 'Resolved'  },
+    { key: 'false_positive', label: 'False positives' },
+    { key: 'all',            label: `All [${counts.total || 0}]` },
   ];
 
   return (
     <Layout>
-      <div className="p-6 max-w-[1000px] mx-auto">
-        <div className="pixel-box border-amber-500 p-5 mb-6 flex items-center justify-between bg-bg-card">
-          <div className="flex items-center gap-4">
-            <ShieldAlert size={32} className="text-amber-500" />
-            <div>
-              <h1 className="text-2xl font-vt text-amber-500 tracking-widest text-shadow-pixel">REVIEW_DEPT</h1>
-              <div className="text-xs font-mono text-text-sec mt-1">AWAITING ANALYST TRIAGE</div>
-            </div>
-          </div>
-          <button onClick={() => load()} className="pixel-btn px-4 py-2 text-text-pri text-xs flex items-center gap-2">
-            SYNC
-          </button>
+      <div className="p-10 max-w-[1000px] mx-auto">
+        <div className="mb-10">
+          <div className="label mb-2">02 — Alerts</div>
+          <h1 className="text-5xl font-black tracking-tight leading-none">Triage queue</h1>
+          <div className="mt-3 font-mono text-xs uppercase tracking-wider text-muted">Awaiting analyst review</div>
         </div>
 
-        <div className="flex gap-2 mb-6 flex-wrap border-b-2 border-border-dim pb-4">
+        <div className="flex gap-8 mb-8 flex-wrap border-b border-hairline">
           {TABS.map(t => (
             <button key={t.key} onClick={() => { setFilter(t.key); load(t.key); }}
-              className={`pixel-btn px-4 py-2 text-xs transition-all ${filter === t.key ? 'pixel-btn-brand' : 'text-text-sec'}`}>
+              className={`pb-3 font-semibold text-sm uppercase tracking-wide transition-colors -mb-px ${
+                filter === t.key ? 'text-ink border-b-2 border-ink' : 'text-muted hover:text-ink'
+              }`}>
               {t.label}
             </button>
           ))}
@@ -269,9 +262,8 @@ export default function Alerts() {
         {loading ? (
           <div className="space-y-4">{Array.from({length:4}).map((_,i) => <SkeletonAlertCard key={i} />)}</div>
         ) : alerts.length === 0 ? (
-          <div className="pixel-box p-12 text-center border-border-dim text-text-muted font-vt text-xl flex flex-col items-center">
-            <CheckCircle size={40} className="mb-4 text-border-hi" />
-            QUEUE_CLEAR. NO_ALERTS_FOUND.
+          <div className="border border-hairline p-16 text-center text-muted font-mono text-sm uppercase tracking-wider">
+            Queue clear. No alerts found.
           </div>
         ) : (
           <div className="space-y-4">

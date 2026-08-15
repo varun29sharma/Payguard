@@ -13,6 +13,10 @@ const WIRE_EVENTS = {
   [EVENTS.CAMPAIGN_UPDATED]: 'campaign-updated',
   [EVENTS.TRANSACTION_REJECTED]: 'blocked-transaction',
   [EVENTS.ANALYST_ACTION_LOGGED]: 'analyst-action-logged',
+  [EVENTS.ENGINE_HEALTH]: 'engine-health',
+  [EVENTS.DISPUTE_INGESTED]: 'dispute-ingested',
+  [EVENTS.MULE_RING_NEW]: 'mule-ring-new',
+  [EVENTS.MULE_RING_UPDATED]: 'mule-ring-updated',
 };
 
 let statsTimer = null;

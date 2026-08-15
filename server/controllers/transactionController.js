@@ -56,6 +56,49 @@ const getTransactions = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/transactions/export
+// Streams the FULL transaction history as a CSV (newest first) for analysts
+// who need to leave the live view — paginated lists only ever show a window.
+const csvEscape = (value) => {
+  if (value === null || value === undefined) return '';
+  const s = String(value);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+const getTransactionsExport = asyncHandler(async (req, res) => {
+  const status = req.query.status;
+  const userId = req.query.userId;
+  const filter = {};
+  if (status) filter.fraudStatus = status;
+  if (userId) filter.userId = userId;
+
+  const transactions = await Transaction.find(filter)
+    .sort({ timestamp: -1 })
+    .lean();
+
+  const HEADERS = [
+    'timestamp', 'transactionId', 'userId', 'merchantId', 'amount', 'currency',
+    'city', 'deviceId', 'accountId', 'fingerprint', 'sessionId', 'ipAddress',
+    'walletId', 'email', 'phone', 'fraudScore', 'fraudStatus', 'scoringEngine',
+    'rulesTriggered',
+  ];
+
+  const rows = transactions.map(t => [
+    t.timestamp ? new Date(t.timestamp).toISOString() : '',
+    t.transactionId, t.userId, t.merchantId, t.amount, t.currency,
+    t.location?.city || '', t.deviceId, t.accountId, t.fingerprint,
+    t.sessionId, t.ipAddress, t.walletId, t.email, t.phone,
+    t.fraudScore, t.fraudStatus, t.scoringEngine,
+    (t.rulesTriggered || []).map(r => `${r.ruleName}:${r.score}`).join('; '),
+  ].map(csvEscape).join(','));
+
+  const csv = '\uFEFF' + HEADERS.join(',') + '\n' + rows.join('\n');
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="payguard-transactions-${Date.now()}.csv"`);
+  res.send(csv);
+});
+
 // GET /api/transactions/stats
 const getStats = asyncHandler(async (req, res) => {
   const [total, flagged, blocked, rejected, scoreAgg] = await Promise.all([
@@ -170,6 +213,6 @@ const getRuleBreakdown = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  createTransaction, getTransactions, getStats,
+  createTransaction, getTransactions, getTransactionsExport, getStats,
   getUserTimeline, getHeatmap, getRuleBreakdown
 };

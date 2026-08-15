@@ -1,22 +1,17 @@
 export default function FraudScore({ score, showBar = false }) {
-  const color = score >= 70 ? 'text-red-400 border-red-500 bg-red-500/20'
-              : score >= 40 ? 'text-amber-400 border-amber-500 bg-amber-500/20'
-              : 'text-brand border-brand bg-brand-dim';
-              
-  const textOnly = score >= 70 ? 'text-red-400' : score >= 40 ? 'text-amber-400' : 'text-brand';
+  const color = score >= 70 ? 'text-accent' : score >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-ink';
+  const barColor = score >= 70 ? 'bg-accent' : score >= 40 ? 'bg-amber-500' : 'bg-ink';
 
   if (!showBar) {
-    return <span className={`font-vt text-lg ${textOnly} text-shadow-pixel`}>{score}</span>;
+    return <span className={`font-mono text-base font-semibold tabular-nums ${color}`}>{score}</span>;
   }
 
   return (
     <div className="flex items-center gap-3">
-      <div className={`w-8 h-6 border-2 flex items-center justify-center font-vt text-sm ${color} shadow-[1px_1px_0_0_#000]`}>
-        {score}
-      </div>
-      <div className="flex-1 max-w-[80px] h-2 bg-bg-primary border border-border-mid flex">
+      <span className={`font-mono text-sm font-semibold tabular-nums w-6 text-right ${color}`}>{score}</span>
+      <div className="flex-1 max-w-[90px] h-[3px] bg-hairline">
         <div
-          className={`h-full transition-all duration-700 ${score >= 70 ? 'bg-red-500' : score >= 40 ? 'bg-amber-500' : 'bg-brand'}`}
+          className={`h-full transition-all duration-700 ${barColor}`}
           style={{ width: `${score}%` }}
         />
       </div>

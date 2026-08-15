@@ -17,6 +17,10 @@ const transactionSchema = new mongoose.Schema(
     walletId: { type: String, index: true, sparse: true },
     email: { type: String, index: true, sparse: true },
     phone: { type: String, index: true, sparse: true },
+    // Counterparty of a person-to-person transfer (the account that RECEIVED
+    // the funds). Distinct from the payer's identity fields above: used by
+    // the mule detector to see money flowing INTO an account, not out.
+    beneficiaryId: { type: String, index: true, sparse: true },
     timestamp: { type: Date, default: Date.now, index: true },
     fraudScore: { type: Number, default: 0, index: true },
     fraudStatus: {
@@ -28,6 +32,16 @@ const transactionSchema = new mongoose.Schema(
       index: true,
     },
     rulesTriggered: [{ ruleName: String, score: Number, reason: String }],
+    // Whether this transaction was scored by the real Java fraud engine or
+    // by the clear-score fallback (engine unreachable). Lets analysts see at
+    // a glance which records carry real signals vs. unscored traffic.
+    scoringEngine: { type: String, enum: ['engine', 'fallback'], default: 'engine' },
+    // Set when a dispute/chargeback confirms this transaction was fraud. The
+    // ground truth that powers per-rule detection-rate reporting — see
+    // services/disputeService.js and the Dispute model.
+    isConfirmedFraud: { type: Boolean, default: false, index: true },
+    disputeReason: { type: String },
+    disputedAt: { type: Date },
   },
   { timestamps: true },
 );
