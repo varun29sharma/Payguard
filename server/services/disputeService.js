@@ -70,6 +70,14 @@ const ingestDispute = async ({ transactionId, reason, status, amount, notes, fil
 
   eventBus.emit(EVENTS.DISPUTE_INGESTED, { dispute, transaction });
 
+  // Update merchant dispute rate (fire-and-forget)
+  if (transaction.merchantId) {
+    setImmediate(() => {
+      const { recordDispute } = require('./merchantService');
+      recordDispute(transaction.merchantId, fraudConfirmed).catch(err => console.error('Merchant dispute update error:', err.message));
+    });
+  }
+
   return { dispute, transaction };
 };
 

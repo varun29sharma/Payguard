@@ -20,6 +20,8 @@ const WIRE_EVENTS = {
   [EVENTS.CASE_NOTE_ADDED]: 'case-note-added',
   [EVENTS.CASE_ASSIGNED]: 'case-assigned',
   [EVENTS.SLA_BREACHED]: 'sla-breached',
+  [EVENTS.MERCHANT_CREATED]: 'merchant-created',
+  [EVENTS.MERCHANT_TIER_CHANGED]: 'merchant-tier-changed',
 };
 
 let statsTimer = null;

@@ -13,6 +13,7 @@ import Rules        from './pages/Rules';
 import Backtest     from './pages/Backtest';
 import Disputes     from './pages/Disputes';
 import Mules        from './pages/Mules';
+import Merchants    from './pages/Merchants';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuth } = useAuth();
@@ -34,6 +35,7 @@ function AppRoutes() {
       <Route path="/backtest"     element={<ProtectedRoute><Backtest /></ProtectedRoute>} />
       <Route path="/disputes"     element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
       <Route path="/mules"        element={<ProtectedRoute><Mules /></ProtectedRoute>} />
+      <Route path="/merchants"     element={<ProtectedRoute><Merchants /></ProtectedRoute>} />
       <Route path="*"             element={<Navigate to="/" replace />} />
     </Routes>
   );

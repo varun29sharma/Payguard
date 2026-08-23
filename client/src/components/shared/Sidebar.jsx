@@ -15,6 +15,7 @@ const NAV = [
   { to: '/backtest',     label: 'Backtest',   sub: 'Replay rule changes' },
   { to: '/disputes',     label: 'Disputes',   sub: 'Confirmed fraud loop' },
   { to: '/mules',        label: 'Mules',      sub: 'Laundering rings' },
+  { to: '/merchants',     label: 'Merchants',  sub: 'Risk profiles' },
 ];
 
 export default function Sidebar({ connected }) {

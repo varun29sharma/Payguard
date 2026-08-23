@@ -121,6 +121,12 @@ const createTransaction = async (body) => {
     setImmediate(() => detectCampaigns().catch((err) => console.error('Campaign detection error:', err.message)));
   }
 
+  // Update merchant risk profile (fire-and-forget)
+  setImmediate(() => {
+    const { upsertFromTransaction } = require('./merchantService');
+    upsertFromTransaction(transaction).catch(err => console.error('Merchant update error:', err.message));
+  });
+
   eventBus.emit(EVENTS.NEW_TRANSACTION, transaction);
   return { outcome: 'created', transaction, alert };
 };

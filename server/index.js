@@ -17,6 +17,7 @@ const ruleRoutes        = require('./routes/ruleRoutes');
 const backtestRoutes    = require('./routes/backtestRoutes');
 const disputeRoutes     = require('./routes/disputeRoutes');
 const muleRoutes        = require('./routes/muleRoutes');
+const merchantRoutes    = require('./routes/merchantRoutes');
 
 // Campaign detector
 const { detectCampaigns } = require('./services/campaignDetector');
@@ -101,6 +102,7 @@ app.use('/api/rules',        ruleRoutes);
 app.use('/api/backtest',     backtestRoutes);
 app.use('/api/disputes',     disputeRoutes);
 app.use('/api/mules',        muleRoutes);
+app.use('/api/merchants',     merchantRoutes);
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
