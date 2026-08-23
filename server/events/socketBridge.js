@@ -17,6 +17,9 @@ const WIRE_EVENTS = {
   [EVENTS.DISPUTE_INGESTED]: 'dispute-ingested',
   [EVENTS.MULE_RING_NEW]: 'mule-ring-new',
   [EVENTS.MULE_RING_UPDATED]: 'mule-ring-updated',
+  [EVENTS.CASE_NOTE_ADDED]: 'case-note-added',
+  [EVENTS.CASE_ASSIGNED]: 'case-assigned',
+  [EVENTS.SLA_BREACHED]: 'sla-breached',
 };
 
 let statsTimer = null;

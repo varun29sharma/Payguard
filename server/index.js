@@ -165,6 +165,14 @@ setInterval(() => {
   detectMuleRings().catch(err => console.error('Mule detection error:', err.message));
 }, 45 * 1000);
 
+// ── SLA BREACH MONITOR ──────────────────────────────────────
+// Runs every 60s: scans open/investigating/escalated alerts for SLA
+// deadlines that have passed and marks them breached with a system note.
+const { checkSLABreaches } = require('./services/caseService');
+setInterval(() => {
+  checkSLABreaches().catch(err => console.error('SLA check error:', err.message));
+}, 60 * 1000);
+
 // ── START ───────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`PayGuard server running on port ${PORT}`));

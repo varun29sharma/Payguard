@@ -113,6 +113,9 @@ const createTransaction = async (body) => {
       amount: transaction.amount, location: transaction.location,
       fraudScore: fraudResult.score, rulesTriggered: fraudResult.rulesTriggered,
     });
+    // Auto-assign SLA deadline based on fraud score → priority mapping.
+    const { ensureSLA } = require('./caseService');
+    await ensureSLA(alert);
     eventBus.emit(EVENTS.NEW_FRAUD_ALERT, { alert, transaction });
     eventBus.emit(EVENTS.REVIEW_QUEUE_UPDATED, { added: [transaction._id] });
     setImmediate(() => detectCampaigns().catch((err) => console.error('Campaign detection error:', err.message)));
