@@ -7,9 +7,10 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
-const { build, search } = require('../controllers/graphController');
+const { build, search, entitySummary } = require('../controllers/graphController');
 
-router.post('/build',  protect, build);
-router.get('/search',  protect, search);
+router.post('/build',            protect, build);
+router.get('/search',            protect, search);
+router.get('/entity/:type/:value', protect, entitySummary);
 
 module.exports = router;

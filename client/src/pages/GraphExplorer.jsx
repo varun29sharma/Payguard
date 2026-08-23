@@ -26,6 +26,8 @@ export default function GraphExplorer() {
   const [maxNodes, setMaxNodes] = useState(200);
   const [showTxns, setShowTxns] = useState(true);
   const [graphError, setGraphError] = useState(null);
+  const [entitySummary, setEntitySummary] = useState(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
 
   const seedRef = useRef(null);
 
@@ -69,14 +71,24 @@ export default function GraphExplorer() {
     buildGraph({ [result.type]: result.value });
   }, [buildGraph]);
 
-  // Click on a node in the graph to expand it
-  const handleNodeClick = useCallback((node) => {
+  // Click on a node in the graph — fetch summary + expand
+  const handleNodeClick = useCallback(async (node) => {
     if (!node || node.type === 'transaction') {
       setSelectedNode(node);
+      setEntitySummary(null);
       return;
     }
     setSelectedNode(node);
-    // Expand from this node
+    setEntitySummary(null);
+    setLoadingSummary(true);
+    try {
+      const res = await api.get(`/graph/entity/${node.type}/${encodeURIComponent(node.value)}`);
+      setEntitySummary(res.data.data);
+    } catch (err) {
+      console.error('Entity summary error:', err);
+    } finally {
+      setLoadingSummary(false);
+    }
     buildGraph({ [node.type]: node.value });
   }, [buildGraph]);
 
@@ -252,16 +264,136 @@ export default function GraphExplorer() {
                   )}
                 </div>
 
-                {/* Stats */}
-                {selectedNode.type === 'transaction' && (
-                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <div className="border border-hairline p-2">
-                      <div className="text-muted">Amount</div>
-                      <div className="font-bold">₹{selectedNode.amount?.toLocaleString()}</div>
+                {/* Loading indicator for entity summary */}
+                {loadingSummary && (
+                  <div className="text-xs text-muted flex items-center gap-2">
+                    <RefreshCw size={12} className="animate-spin" /> Loading entity analysis…
+                  </div>
+                )}
+
+                {/* Rich Entity Summary */}
+                {entitySummary && !loadingSummary && (
+                  <div className="space-y-4">
+                    {/* Risk Level */}
+                    <div className="flex gap-2">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold border ${
+                        entitySummary.riskLevel === 'critical' ? 'border-red-400 bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                        : entitySummary.riskLevel === 'high' ? 'border-orange-400 bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300'
+                        : entitySummary.riskLevel === 'medium' ? 'border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                        : 'border-green-400 bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300'
+                      }`}>RISK: {entitySummary.riskLevel.toUpperCase()}</span>
                     </div>
-                    <div className="border border-hairline p-2">
-                      <div className="text-muted">Score</div>
-                      <div className="font-bold">{selectedNode.fraudScore}</div>
+
+                    {/* Transaction Stats */}
+                    <div className="grid grid-cols-3 gap-2 text-[10px]">
+                      <div className="border border-hairline p-2 text-center">
+                        <div className="font-bold text-lg">{entitySummary.summary.totalTransactions}</div>
+                        <div className="text-muted">TXNS</div>
+                      </div>
+                      <div className="border border-hairline p-2 text-center">
+                        <div className="font-bold text-lg">₹{entitySummary.summary.totalAmount?.toLocaleString()}</div>
+                        <div className="text-muted">VOLUME</div>
+                      </div>
+                      <div className="border border-hairline p-2 text-center">
+                        <div className="font-bold text-lg">{entitySummary.summary.avgScore}</div>
+                        <div className="text-muted">AVG SCORE</div>
+                      </div>
+                    </div>
+
+                    {/* Fraud Breakdown */}
+                    <div className="grid grid-cols-3 gap-2 text-[10px]">
+                      <div className="text-center">
+                        <div className="font-bold text-green-600">{entitySummary.summary.clearCount}</div>
+                        <div className="text-muted">Clear</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-bold text-amber-600">{entitySummary.summary.flaggedCount}</div>
+                        <div className="text-muted">Flagged</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-bold text-red-600">{entitySummary.summary.blockedCount}</div>
+                        <div className="text-muted">Blocked</div>
+                      </div>
+                    </div>
+
+                    {/* Key Metrics */}
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <div className="border border-hairline p-2">
+                        <div className="text-muted">Max Score</div>
+                        <div className="font-bold">{entitySummary.summary.maxScore}</div>
+                      </div>
+                      <div className="border border-hairline p-2">
+                        <div className="text-muted">Peak Hour</div>
+                        <div className="font-bold">{entitySummary.summary.peakHour}:00</div>
+                      </div>
+                      <div className="border border-hairline p-2">
+                        <div className="text-muted">Counterparties</div>
+                        <div className="font-bold">{entitySummary.summary.uniqueCounterparties}</div>
+                      </div>
+                      <div className="border border-hairline p-2">
+                        <div className="text-muted">Merchants</div>
+                        <div className="font-bold">{entitySummary.summary.uniqueMerchants}</div>
+                      </div>
+                    </div>
+
+                    {/* Block Status */}
+                    {entitySummary.blockStatus && (
+                      <div className="border border-red-300 bg-red-50 dark:bg-red-950/30 p-2 text-[10px]">
+                        <div className="font-bold text-red-700 dark:text-red-300 mb-1">BLOCKED</div>
+                        <div>Reason: {entitySummary.blockStatus.reason}</div>
+                        <div>By: {entitySummary.blockStatus.blockedBy}</div>
+                      </div>
+                    )}
+
+                    {/* Active Alerts */}
+                    {entitySummary.activeAlerts?.length > 0 && (
+                      <div>
+                        <div className="label mb-1">ACTIVE ALERTS</div>
+                        {entitySummary.activeAlerts.map((a, i) => (
+                          <div key={i} className="text-[10px] border border-hairline p-2 mb-1 flex justify-between">
+                            <span>Score: {a.score} · {a.status}</span>
+                            <span className="text-muted">P{a.priority?.slice(1)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Top Counterparties */}
+                    {entitySummary.topCounterparties?.length > 0 && (
+                      <div>
+                        <div className="label mb-1">TOP CONNECTIONS</div>
+                        <div className="space-y-1">
+                          {entitySummary.topCounterparties.slice(0, 5).map((c, i) => (
+                            <div key={i} className="flex items-center gap-2 text-[10px]">
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: NODE_COLORS[c.type] }} />
+                              <span className="text-muted">{TYPE_LABELS[c.type]}:</span>
+                              <span className="font-mono truncate flex-1">{c.value?.slice(0, 16)}</span>
+                              <span className="text-muted">×{c.count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Top Merchants */}
+                    {entitySummary.topMerchants?.length > 0 && (
+                      <div>
+                        <div className="label mb-1">MERCHANTS</div>
+                        <div className="space-y-1">
+                          {entitySummary.topMerchants.map((m, i) => (
+                            <div key={i} className="flex justify-between text-[10px]">
+                              <span className="font-mono">{m.merchantId}</span>
+                              <span className="text-muted">{m.count} txns</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Time Range */}
+                    <div className="text-[10px] text-muted space-y-1">
+                      <div>First seen: {entitySummary.summary.firstSeen ? new Date(entitySummary.summary.firstSeen).toLocaleString() : '—'}</div>
+                      <div>Last seen: {entitySummary.summary.lastSeen ? new Date(entitySummary.summary.lastSeen).toLocaleString() : '—'}</div>
                     </div>
                   </div>
                 )}

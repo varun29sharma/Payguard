@@ -29,10 +29,12 @@ export default function ForceGraph({ nodes, edges, onNodeClick, selectedNodeId, 
   const edgesRef = useRef([]);
   const hoveredRef = useRef(null);
   const selectedRef = useRef(null);
+  const onNodeClickRef = useRef(onNodeClick);
   const [tooltip, setTooltip] = useState(null);
 
-  // Keep selectedRef in sync via effect (not during render)
+  // Keep refs in sync via effect (not during render)
   useEffect(() => { selectedRef.current = selectedNodeId; }, [selectedNodeId]);
+  useEffect(() => { onNodeClickRef.current = onNodeClick; }, [onNodeClick]);
 
   // Build + start simulation, render via direct DOM updates
   useEffect(() => {
@@ -161,10 +163,10 @@ export default function ForceGraph({ nodes, edges, onNodeClick, selectedNodeId, 
       g._selRing = selRing;
       g._circle = circle;
 
-      // Interaction handlers
+      // Interaction handlers (use ref to avoid stale closure)
       g.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (onNodeClick) onNodeClick(n);
+        if (onNodeClickRef.current) onNodeClickRef.current(n);
       });
 
       g.addEventListener('mouseenter', (e) => {

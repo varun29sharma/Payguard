@@ -4,7 +4,7 @@
  *   POST /api/graph/build      build graph from seed identifiers
  *   GET  /api/graph/search     search for identifier values
  */
-const { buildGraph, searchIdentifiers } = require('../services/graphService');
+const { buildGraph, searchIdentifiers, getEntitySummary } = require('../services/graphService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { ValidationError } = require('../utils/errors');
 const { IDENTITY_FIELDS } = require('../services/identityGraphService');
@@ -46,4 +46,12 @@ const search = asyncHandler(async (req, res) => {
   res.json({ success: true, data: results });
 });
 
-module.exports = { build, search };
+// GET /api/graph/entity/:type/:value
+const entitySummary = asyncHandler(async (req, res) => {
+  const { type, value } = req.params;
+  const summary = await getEntitySummary(type, value);
+  if (!summary) throw new ValidationError('Entity not found or no transactions');
+  res.json({ success: true, data: summary });
+});
+
+module.exports = { build, search, entitySummary };

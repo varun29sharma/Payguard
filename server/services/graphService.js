@@ -248,4 +248,100 @@ const searchIdentifiers = async (query, limit = 20) => {
   return [...results.values()].slice(0, limit);
 };
 
-module.exports = { buildGraph, searchIdentifiers, NODE_COLORS };
+/**
+ * Get a rich summary for a specific entity (identifier node) in the graph.
+ * Includes transaction history, risk metrics, connected entities, and timeline.
+ */
+const getEntitySummary = async (type, value) => {
+  if (!IDENTITY_FIELDS.includes(type) || !value) return null;
+
+  // Find all transactions for this entity
+  const txns = await Transaction.find({ [type]: value })
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .select(`${IDENTITY_FIELDS.join(' ')} transactionId amount fraudScore fraudStatus createdAt merchantId`) // noSON
+    .lean();
+
+  if (!txns.length) return null;
+
+  // Aggregate metrics
+  const totalAmount = txns.reduce((sum, t) => sum + (t.amount || 0), 0);
+  const flaggedCount = txns.filter(t => t.fraudStatus !== 'clear').length;
+  const blockedCount = txns.filter(t => t.fraudStatus === 'blocked').length;
+  const avgScore = txns.length ? Math.round(txns.reduce((sum, t) => sum + (t.fraudScore || 0), 0) / txns.length) : 0;
+  const maxScore = Math.max(...txns.map(t => t.fraudScore || 0));
+
+  // Unique counterparties (other identifiers on same transactions)
+  const counterparties = new Map();
+  for (const txn of txns) {
+    for (const field of IDENTITY_FIELDS) {
+      if (field !== type && txn[field]) {
+        const key = `${field}:${txn[field]}`;
+        counterparties.set(key, { type: field, value: txn[field], count: (counterparties.get(key)?.count || 0) + 1 });
+      }
+    }
+  }
+
+  // Unique merchants
+  const merchants = new Map();
+  for (const txn of txns) {
+    if (txn.merchantId) merchants.set(txn.merchantId, (merchants.get(txn.merchantId) || 0) + 1);
+  }
+
+  // Hourly distribution
+  const hourly = new Array(24).fill(0);
+  txns.forEach(t => { hourly[new Date(t.createdAt).getHours()]++; });
+  const peakHour = hourly.indexOf(Math.max(...hourly));
+
+  // Time range
+  const firstSeen = txns[txns.length - 1]?.createdAt;
+  const lastSeen = txns[0]?.createdAt;
+
+  // Check blocklist status
+  const blockEntry = await BlockList.findOne({ type, value, isActive: true }).lean();
+
+  // Check fraud alerts
+  const alertQuery = { [type]: value, status: { $in: ['open', 'investigating', 'escalated'] } };
+  const alerts = await FraudAlert.find(alertQuery).select('fraudScore status priority createdAt').lean();
+
+  // Risk assessment
+  let riskLevel = 'low';
+  if (blockEntry || maxScore >= 80) riskLevel = 'critical';
+  else if (alerts.length > 0 || maxScore >= 60) riskLevel = 'high';
+  else if (flaggedCount > 0 || avgScore >= 30) riskLevel = 'medium';
+
+  return {
+    type,
+    value,
+    summary: {
+      totalTransactions: txns.length,
+      totalAmount,
+      flaggedCount,
+      blockedCount,
+      clearCount: txns.length - flaggedCount - blockedCount,
+      avgScore,
+      maxScore,
+      uniqueCounterparties: counterparties.size,
+      uniqueMerchants: merchants.size,
+      peakHour,
+      firstSeen,
+      lastSeen,
+    },
+    riskLevel,
+    blockStatus: blockEntry ? { reason: blockEntry.reason, blockedBy: blockEntry.blockedBy, blockedAt: blockEntry.createdAt } : null,
+    activeAlerts: alerts.map(a => ({ score: a.fraudScore, status: a.status, priority: a.priority, createdAt: a.createdAt })),
+    topCounterparties: [...counterparties.values()].sort((a, b) => b.count - a.count).slice(0, 10),
+    topMerchants: [...merchants.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, count]) => ({ merchantId: id, count })),
+    hourlyDistribution: hourly,
+    recentTransactions: txns.slice(0, 10).map(t => ({
+      transactionId: t.transactionId,
+      amount: t.amount,
+      fraudScore: t.fraudScore,
+      fraudStatus: t.fraudStatus,
+      merchantId: t.merchantId,
+      timestamp: t.createdAt,
+    })),
+  };
+};
+
+module.exports = { buildGraph, searchIdentifiers, getEntitySummary, NODE_COLORS };
