@@ -17,20 +17,21 @@ Every transaction gets a decision. Nothing gets deleted. And the platform is hon
 7. [The recipe book — runtime rule configuration](#the-recipe-book)
 8. [The tasting room — the backtest harness](#the-tasting-room)
 9. [The health inspector — disputes and detection rates](#the-health-inspector)
-10. [The cash-out watch — mule detection](#the-cash-out-watch)
-11. [The security guard — auth, rate limits, headers](#the-security-guard)
-12. [The dining room — the ten screens](#the-dining-room)
-13. [A dish's journey — one transaction, end to end](#a-dishs-journey)
-14. [Architecture](#architecture)
-15. [Quick start](#quick-start)
-16. [Production notes](#production-notes)
-17. [Summary](#summary)
+10. [The food critic — how good are the rules, actually?](#the-food-critic)
+11. [The cash-out watch — mule detection](#the-cash-out-watch)
+12. [The security guard — auth, rate limits, headers](#the-security-guard)
+13. [The dining room — the screens](#the-dining-room)
+14. [A dish's journey — one transaction, end to end](#a-dishs-journey)
+15. [Architecture](#architecture)
+16. [Quick start](#quick-start)
+17. [Production notes](#production-notes)
+18. [Summary](#summary)
 
 ---
 
 ## The one-minute read
 
-PayGuard is a three-part fraud-intelligence platform for payment networks. A **Java scoring engine** evaluates every transaction against six fraud rules before it commits; a **Node.js API** orchestrates the pipeline, blocks fraud rings through an identity graph, and detects laundering patterns; and a **React dashboard** gives the analyst a calm, real-time view of everything — with runtime-tunable rules, a backtest harness to prove rule changes before deploying them, and a dispute loop that measures how well the system actually catches the fraud it now knows about.
+PayGuard is a four-part fraud-intelligence platform for payment networks. A **Java scoring engine** evaluates every transaction against six fraud rules before it commits; a **Node.js API** orchestrates the pipeline, blocks fraud rings through an identity graph, and detects laundering patterns; a **React dashboard** gives the analyst a calm, real-time view of everything — with runtime-tunable rules, a backtest harness to prove rule changes before deploying them, and a dispute loop that measures how well the system actually catches the fraud it now knows about. And an **ML workspace** (`ml/`) measures that rules engine honestly against externally-labelled data — and is replacing its score-averaging with a calibrated model.
 
 The whole thing is built like a fine-dining restaurant, and every part of the system maps to something in that restaurant. That analogy is the skeleton of this document — read it once and the architecture stays with you.
 
@@ -208,6 +209,84 @@ Crucially, this uses the rules that *actually* fired when the transaction was sc
 
 ---
 
+## The food critic
+
+Every good restaurant eventually invites someone who will say, in print, what the food is *actually* like — including when it is not good. The health inspector measures compliance; the critic measures quality. This section is the critic, and it exists because of two uncomfortable truths about the kitchen.
+
+### Flaw 1: averaging rule scores means more evidence can mean less suspicion
+
+`FraudScoringService.score` sets the final score to the **mean** of every rule that fired:
+
+```java
+int finalScore = triggered.isEmpty() ? 0 : (int) triggered.stream()
+        .mapToInt(FraudResult.RuleResult::getScore)
+        .average()
+        .orElse(0);
+```
+
+Work through what that implies. A ₹2,50,000 transaction fires `AMOUNT_THRESHOLD_RULE` alone: score 65 → `review`. Now it *also* happens at 3 AM, so `NIGHT_OWL_RULE` (40) fires: (65+40)/2 = 52.5, truncated to **52**. More evidence of fraud, lower score. The pathological case is sharper: impossible travel (80) alone is `blocked`; impossible travel plus an after-hours signal is (80+40)/2 = **60** → `review`. A rule firing has moved the transaction into a strictly *more permissive* band.
+
+One precision note, because a reviewer will check it: `fraudStatus: 'blocked'` is currently a label plus an alert, not a declined authorisation — both `review` and `blocked` commit and return 201, and the only genuine 403 is a blocklist hit. So the cost today is misrouted triage and a distorted risk ordering rather than fraud slipping through a gate. That is still a real cost, because the whole point of the score is to rank what an analyst looks at.
+
+This is not a bug you patch with better thresholds — it is the wrong *aggregation function*. Evidence should accumulate. The mathematically correct way to accumulate independent evidence is to add log-odds, not average scores:
+
+```
+log( P(fraud) / P(not fraud) )  =  b + w₁x₁ + w₂x₂ + ... + wₙxₙ
+```
+
+Each additional firing rule with a positive weight can only increase the score. That is logistic regression, and it is a drop-in replacement for the four lines above.
+
+| fired rules | scores | average | status | log-odds | status |
+|---|---|---|---|---|---|
+| `AMOUNT_THRESHOLD` alone | 65 | 65 | review | 82 | blocked |
+| `AMOUNT_THRESHOLD` + `NIGHT_OWL` | 65, 40 | 52 | review | 92 | blocked |
+| impossible travel alone | 80 | 80 | blocked | 90 | blocked |
+| impossible travel + `NIGHT_OWL` | 80, 40 | 60 | **review** | 95 | **blocked** |
+
+The table is generated, not hand-written — `payguard_ml.baseline.averaging_flaw_counterexample()`, with a test that fails if the averaging defect ever stops reproducing.
+
+### Flaw 2: the simulator's data cannot train anything
+
+The simulator generates exactly the patterns the six rules were written to catch. Train on simulator traffic and take labels from the rules that fired, and you have built a circle: the model learns to imitate the rules, scores ~0.99, and has learned nothing about fraud. That is why the ML layer replays a **real, externally-labelled** dataset through the existing ingest API and feeds the labels back as chargebacks, so `isConfirmedFraud` comes from ground truth the rules had no hand in creating.
+
+### How good are the rules, actually?
+
+**Real number: PENDING.** It requires either a Kaggle download (Sparkov) or a live `fraud-engine + server + mongo` stack to replay into. `ml/MODEL_CARD.md` and `ml/EXPERIMENTS.md` say so explicitly rather than dressing up a fixture as a finding.
+
+The pipeline that produces it lives in [`ml/`](ml/README.md) — a fourth top-level component:
+
+```bash
+cd ml
+./.venv/bin/python run_baseline.py --replay-csv data/sparkov.csv --kind sparkov \
+    --limit 50000 --base-url http://localhost:3000 --api-key "$PAYGUID_API_KEY"
+```
+
+Which maps each row to PayGuard's ingest shape, replays it chronologically **with real timestamps**, feeds every `is_fraud` row back as a dispute, then verifies that the replayed timestamps match the source, that the replay was chronological, and that no label was derived from `rulesTriggered`.
+
+The shape of the expected result, from the synthetic fixture — **labelled `synthetic-demo`, these are a smoke test and not a result**:
+
+| metric | fixture value |
+|---|---|
+| Precision | 0.039 |
+| Recall | 0.832 |
+| F1 | 0.074 |
+| **PR-AUC (average precision)** | **0.256** |
+| ROC-AUC | 0.880 |
+| Flag rate | 26.7% |
+
+High recall, almost no precision: the rules shout and catch most frauds, but flood the analyst with false alarms, and an ROC-AUC of 0.88 hides that while a PR-AUC of 0.26 does not. The per-rule table is the same story: `NIGHT_OWL_RULE` fires on 25% of all traffic for a precision of **0.010** — real UPI networks have plenty of legitimate late-night activity — while `AMOUNT_THRESHOLD_RULE` fires fourteen times. Those are the numbers Phase 1 replaces with learned weights.
+
+That gap is the project. It is reported honestly rather than tuned away, because a project that reports its own baseline as mediocre and then improves it measurably is dramatically more credible than one that reports 0.99 AUC.
+
+### The discipline that makes the numbers real
+
+- **Labels from outside.** Never `rulesTriggered`. Enforced in code, not just in prose.
+- **No future data.** Every feature uses only rows strictly before the transaction's own timestamp, with a leakage test that deletes all subsequent rows and asserts the feature vector is byte-identical.
+- **PR-AUC is the headline.** At 0.2% positives, accuracy is a lie (predict "clear" for everything and score 99.8%) and ROC-AUC flatters, because its false-positive *rate* is normalised by an enormous true-negative count. Precision reflects the absolute number of false alarms — which is what actually costs analyst hours and customer trust.
+- **Every number carries its source.** `synthetic`, `sparkov`, `paysim`, and the split it came from, in `ml/EXPERIMENTS.md`.
+
+---
+
 ## The cash-out watch
 
 **Mule accounts** are the #1 laundering pattern in UPI networks: an account receives money from many victims and quickly forwards most of it to a single beneficiary, keeping a small cut. The **mule detector** (`services/muleDetectorService.js`, runs every 45s) automates the watch.
@@ -249,7 +328,7 @@ The ingest surface used to answer anyone. Now it's locked down:
 
 ## The dining room
 
-The frontend is a **React 19 + Vite** app (`client/`, port 5173) styled as a **Swiss-editorial restaurant** — warm paper, black ink, hairline rules, one vermillion accent reserved for danger. It's light/dark switchable, and the data does the talking. Ten screens:
+The frontend is a **React 19 + Vite** app (`client/`, port 5173) styled as a **Swiss-editorial restaurant** — warm paper, black ink, hairline rules, one vermillion accent reserved for danger. It's light/dark switchable, and the data does the talking. Twelve screens:
 
 | # | Screen | The dining-room view |
 |---|---|---|
@@ -263,8 +342,10 @@ The frontend is a **React 19 + Vite** app (`client/`, port 5173) styled as a **S
 | 08 | **Backtest** | The tasting room: replay real history through a proposed change and see before/after detection rates. |
 | 09 | **Disputes** | The health inspector's desk: ingest chargebacks as ground truth, then read the per-rule detection report. |
 | 10 | **Mules** | The cash-out watch: laundering rings with evidence, chain ratios, and one-click identity-graph block. |
+| 11 | **Merchants** | Merchant risk profiles: MCC category, dispute rate, fraud rate, volume, and a composite risk tier. |
+| 12 | **Graph** | The identity explorer: a force-directed view of the 9-identifier graph, with rich per-entity summaries. |
 
-The sidebar keeps the whole floor navigable: `01 HOME … 10 MULES`, with live status (socket connection + engine health) always in view, and a **Disengage** button for the analyst.
+The sidebar keeps the whole floor navigable: `01 HOME … 12 GRAPH`, with live status (socket connection + engine health) always in view, and a **Disengage** button for the analyst.
 
 ---
 
@@ -295,7 +376,7 @@ That's the whole system in one order: **detect → alert → decide → block th
 ```
                          ┌────────────────────────────┐
                          │  client/  React + Vite     │
-                         │  the dining room (10 rooms)│
+                         │  the dining room (12 rooms)│
                          └──────────────┬─────────────┘
                                         │ REST + Socket.IO (JWT)
                          ┌──────────────▼─────────────┐
@@ -373,6 +454,15 @@ Or click **USE DEMO** — it's one click. Then:
 4. **Backtest** — propose lowering `AMOUNT_THRESHOLD_RULE`'s `minAmount` and see what would have been flagged.
 5. **Rules** — disable a rule and watch the very next transaction stop triggering it.
 
+```bash
+# 4. The food critic — the ML workspace (not a service; runs on demand)
+cd ml
+python3 -m venv --system-site-packages .venv
+./.venv/bin/pip install -r requirements.txt
+./.venv/bin/python -m pytest                    # 89 tests
+./.venv/bin/python run_baseline.py --synthetic  # fixture, then real data
+```
+
 > **Environment notes.** This sandbox injects `PORT=0`, which shadows `server/.env` — pin it as shown. Mongo credentials live in `server/.env` (gitignored). The machine-ingest demo API key is `pg_live_demo_5f3c2a9e1b7d84a6` (bcrypt-hashed in the `ApiKey` collection). See `replit.md` for the full environment walkthrough.
 
 ---
@@ -383,13 +473,13 @@ PayGuard is built as a demo-grade platform with production-shaped bones. Before 
 
 - **Rotate the seeded credentials** — the demo analyst password and the demo API key are well-known; gate rule-config, ring-block, and blocklist mutations behind an admin role.
 - **Persist rule state** — the kitchen's sliding windows (velocity, enumeration, geo, new-device) live in engine memory; persist them for multi-instance deployments and restart resilience.
-- **The rules are heuristics, not models** — they catch known patterns brilliantly. Per-user behavioral baselines (ML anomaly scoring) are the natural next layer, and the tasting room + health inspector are the harness to prove them before they ship.
+- **The rules are heuristics, not models** — they catch known patterns brilliantly, but they average their evidence (see [The food critic](#the-food-critic)) and their thresholds are guesses, not estimates. Per-user behavioral baselines (ML anomaly scoring) are the natural next layer; the tasting room + health inspector are the harness to prove them before they ship, and `ml/` is where the measured replacement is built.
 - **Monitor the fallback** — when the engine is down the system says so and lets dishes through marked fallback; in production, that signal should page someone.
 
 ---
 
 ## Summary
 
-PayGuard is a restaurant where every dish is inspected, the recipe book can be rewritten live, the tasting room proves changes before they ship, and the health inspector's reports come back to the chef. Six inspectors in the kitchen catch the classic fraud signatures; the maître d' orchestrates a four-step pipeline and blocks rings through the identity graph's family tree; the cash-out watch catches mule laundering; the dispute loop measures what actually got caught; and the dining room presents it all in a calm, real-time, Swiss-editorial interface — with security at the door and an immutable ledger of everything that ever happened.
+PayGuard is a restaurant where every dish is inspected, the recipe book can be rewritten live, the tasting room proves changes before they ship, and the health inspector's reports come back to the chef. Six inspectors in the kitchen catch the classic fraud signatures; the maître d' orchestrates a four-step pipeline and blocks rings through the identity graph's family tree; the cash-out watch catches mule laundering; the dispute loop measures what actually got caught; the food critic publishes the honest numbers — including the ones the kitchen would rather not see; and the dining room presents it all in a calm, real-time, Swiss-editorial interface — with security at the door and an immutable ledger of everything that ever happened.
 
 **The room knows before you do.**

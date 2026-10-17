@@ -11,7 +11,11 @@ const { asyncHandler } = require('../middleware/errorHandler');
 
 // POST /api/transactions
 const createTransaction = asyncHandler(async (req, res) => {
-  const result = await transactionService.createTransaction(req.body);
+  // Historical timestamps are allowed only for machine callers (API key):
+  // the ML replay path needs to backdate, an analyst session does not.
+  const result = await transactionService.createTransaction(req.body, {
+    allowPastTimestamp: Boolean(req.apiKey),
+  });
 
   if (result.outcome === 'blocked_final') {
     // Bug #2: the entity was blocked while this transaction was in flight —
@@ -79,16 +83,21 @@ const getTransactionsExport = asyncHandler(async (req, res) => {
   const HEADERS = [
     'timestamp', 'transactionId', 'userId', 'merchantId', 'amount', 'currency',
     'city', 'deviceId', 'accountId', 'fingerprint', 'sessionId', 'ipAddress',
-    'walletId', 'email', 'phone', 'fraudScore', 'fraudStatus', 'scoringEngine',
-    'rulesTriggered',
+    'walletId', 'email', 'phone', 'beneficiaryId', 'fraudScore', 'fraudStatus',
+    'scoringEngine', 'isConfirmedFraud', 'mlScore', 'mlVersion', 'rulesTriggered',
   ];
 
   const rows = transactions.map(t => [
     t.timestamp ? new Date(t.timestamp).toISOString() : '',
     t.transactionId, t.userId, t.merchantId, t.amount, t.currency,
     t.location?.city || '', t.deviceId, t.accountId, t.fingerprint,
-    t.sessionId, t.ipAddress, t.walletId, t.email, t.phone,
+    t.sessionId, t.ipAddress, t.walletId, t.email, t.phone, t.beneficiaryId,
     t.fraudScore, t.fraudStatus, t.scoringEngine,
+    // Ground-truth label + the ML shadow score: the two fields the Phase 0
+    // baseline and the Phase 1 shadow analysis are computed from.
+    t.isConfirmedFraud === true ? 'true' : 'false',
+    t.mlScore === null || t.mlScore === undefined ? '' : t.mlScore,
+    t.mlVersion || '',
     (t.rulesTriggered || []).map(r => `${r.ruleName}:${r.score}`).join('; '),
   ].map(csvEscape).join(','));
 

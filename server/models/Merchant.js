@@ -28,7 +28,7 @@ const merchantSchema = new mongoose.Schema({
   riskScore:    { type: Number, default: 0, min: 0, max: 100 },
 
   // ── Dispute metrics (rolling 30-day window) ──────────────
-  disputeRate:  { type: Number, default: 0 },   // disputes / transactions
+  disputeRate:  { type: Number, default: 0 },   // percentage, 0–100 (disputes / transactions * 100)
   totalDisputes:{ type: Number, default: 0 },   // all-time
   fraudDisputes:{ type: Number, default: 0 },   // fraud-confirmed only
 

@@ -6,7 +6,7 @@ const FRAUD_ENGINE_URL = (
   process.env.FRAUD_ENGINE_URL || "http://localhost:8080"
 ).replace(/\/$/, "");
 
-const callFraudEngine = async (transaction) => {
+const callFraudEngine = async (transaction, features = null) => {
   // Ship the current rule configuration with every scoring request — the Java
   // engine reads it per request (enabled flags, severity overrides, custom
   // thresholds), so operator changes apply instantly with no restart.
@@ -20,6 +20,10 @@ const callFraudEngine = async (transaction) => {
     deviceId: transaction.deviceId || "unknown",
     location: transaction.location || {},
     rules,
+    // The ML feature vector, computed ONCE by services/featureService.js and
+    // shared with the ml-service sidecar. Omitted when unavailable, and the
+    // engine then reports mlEngine='skipped' rather than inventing a score.
+    ...(Array.isArray(features) && features.length ? { features } : {}),
   };
   // 3 sec timeout for sending the request; failure means clear.
   const response = await axios.post(

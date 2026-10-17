@@ -30,9 +30,13 @@ const TIER_ORDER = ['low', 'medium', 'high', 'critical'];
 const computeRiskScore = (merchant) => {
   let score = 0;
 
-  // Dispute rate contribution (0–30)
-  // 0% disputes = 0, ≥5% disputes = 30
-  score += Math.min(30, (merchant.disputeRate || 0) * 600);
+  // Dispute rate contribution (0–30).
+  // `disputeRate` is stored as a PERCENTAGE (0–100) — see recordDispute and
+  // the Merchants screen, which renders it with a '%' suffix. So ≥5% disputes
+  // must map to the full 30 points: 5 * 6 = 30. (Previously this used *600,
+  // which saturated to 30 for any rate ≥0.05% — a unit mismatch that made the
+  // risk tiering wrong for every merchant with any dispute at all.)
+  score += Math.min(30, (merchant.disputeRate || 0) * 6);
 
   // Fraud rate contribution (0–25)
   const fraudRate = merchant.totalTransactions > 0
