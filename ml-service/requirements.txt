@@ -1,0 +1,16 @@
+# PayGuard ML sidecar (Phase 2)
+#
+# Deliberately tiny. The sidecar does exactly two things: run the boosted model
+# and explain it. It does NOT compute features (Node does, once) and it does NOT
+# train (the offline pipeline does).
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2.6
+numpy>=1.26
+
+# Loads the artefact exported by ml/compare_models.py
+lightgbm>=4.0
+
+# TreeSHAP — fast enough to run inside the scoring path, which is what keeps
+# PayGuard's "every decision comes with reasons" promise for a black-box model.
+shap>=0.44
