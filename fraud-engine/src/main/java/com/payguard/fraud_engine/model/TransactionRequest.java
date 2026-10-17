@@ -30,6 +30,12 @@ public class TransactionRequest {
     // Optional per-request rule configuration (see RuleConfig). When absent,
     // every rule runs with its built-in defaults.
     private List<RuleConfig> rules;
+    // ML feature vector, computed ONCE by the Node server (services/featureService.js)
+    // and passed to both this engine and the ml-service. One implementation of
+    // the feature logic means training/serving skew has nowhere to hide; the
+    // golden-fixture test pins Python's offline computation to the same values.
+    // Order must match ModelWeights.features — the scorer validates the length.
+    private List<Double> features;
 
     public TransactionRequest() {
     }
@@ -37,6 +43,12 @@ public class TransactionRequest {
     public TransactionRequest(String transactionId, String userId, String merchantId, double amount,
                               String currency, Instant timeStamp, String deviceId, Map<String, Object> location,
                               List<RuleConfig> rules) {
+        this(transactionId, userId, merchantId, amount, currency, timeStamp, deviceId, location, rules, null);
+    }
+
+    public TransactionRequest(String transactionId, String userId, String merchantId, double amount,
+                              String currency, Instant timeStamp, String deviceId, Map<String, Object> location,
+                              List<RuleConfig> rules, List<Double> features) {
         this.transactionId = transactionId;
         this.userId = userId;
         this.merchantId = merchantId;
@@ -46,6 +58,7 @@ public class TransactionRequest {
         this.deviceId = deviceId;
         this.location = location;
         this.rules = rules;
+        this.features = features;
     }
 
     public String getTransactionId() { return transactionId; }
@@ -74,4 +87,7 @@ public class TransactionRequest {
 
     public List<RuleConfig> getRules() { return rules; }
     public void setRules(List<RuleConfig> rules) { this.rules = rules; }
+
+    public List<Double> getFeatures() { return features; }
+    public void setFeatures(List<Double> features) { this.features = features; }
 }
