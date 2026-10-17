@@ -1,0 +1,25 @@
+# PayGuard ML workspace — Python dependencies.
+#
+# Split by phase so you can see *why* each one is here. Install the whole thing
+# with `pip install -r ml/requirements.txt` inside ml/.venv.
+#
+# Phase 0 (data + honest baseline)
+numpy>=1.26
+pandas>=2.0
+requests>=2.31          # replay.py drives the ingest + dispute APIs
+matplotlib>=3.7         # PR curve / reliability diagram
+
+# Phase 1 (logistic regression, from scratch + sklearn comparison)
+scikit-learn>=1.4       # the yardstick our from-scratch implementations are tested against
+scipy>=1.11
+
+# Phase 2 (trees, ensembles, explainability, the sidecar)
+xgboost>=2.0
+lightgbm>=4.0
+shap>=0.44              # TreeSHAP contributions, so the model keeps PayGuard's "reasons" promise
+fastapi>=0.110          # ml-service sidecar
+uvicorn>=0.29
+pydantic>=2.6
+
+# Dev
+pytest>=8.0

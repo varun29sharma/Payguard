@@ -1,0 +1,37 @@
+{
+  "k_fold": {
+    "mean": 0.896480780484915,
+    "std": 0.02947084195147194,
+    "folds": [
+      0.8826,
+      0.9071,
+      0.8743,
+      0.9494,
+      0.8691
+    ]
+  },
+  "stratified_k_fold": {
+    "mean": 0.8975179048298703,
+    "std": 0.013358002497575412,
+    "folds": [
+      0.9047,
+      0.9024,
+      0.871,
+      0.9071,
+      0.9024
+    ]
+  },
+  "time_series_forward_chaining": {
+    "mean": 0.8920912205660217,
+    "std": 0.033012476545395734,
+    "folds": [
+      0.8987,
+      0.8309,
+      0.8961,
+      0.9039,
+      0.9309
+    ]
+  },
+  "optimism_gap_stratified_vs_time": 0.0054266842638485135,
+  "verdict": "stratified k-fold inflates the score because folds share users' later transactions; forward-chaining time-series CV is the only scheme valid on transaction data"
+}

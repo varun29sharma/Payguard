@@ -7,3 +7,13 @@ build/
 *.log
 .DS_Store
 .freebuff/
+
+# ML workspace
+ml/.venv/
+ml/data/
+ml/artifacts/*.png
+ml/artifacts/*.csv
+ml/__pycache__/
+**/__pycache__/
+.pytest_cache/
+*.egg-info/

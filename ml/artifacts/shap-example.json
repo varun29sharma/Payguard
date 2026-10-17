@@ -1,0 +1,27 @@
+[
+  {
+    "feature": "log_amount",
+    "value": 5.767132790156963,
+    "shap": -0.4043912647831673
+  },
+  {
+    "feature": "rule_new_device",
+    "value": 0.0,
+    "shap": -0.1466849566362222
+  },
+  {
+    "feature": "amt_ratio_user_mean",
+    "value": 1.2587811245552354,
+    "shap": -0.10085524176137939
+  },
+  {
+    "feature": "hour_sin",
+    "value": -0.9659258262890684,
+    "shap": 0.06867254756111131
+  },
+  {
+    "feature": "merchant_dispute_rate_asof",
+    "value": 0.017045454545454544,
+    "shap": -0.06809579329164735
+  }
+]

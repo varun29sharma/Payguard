@@ -1,0 +1,746 @@
+{
+  "assumption": "features are conditionally independent given the class \u2014 for each feature, P(x_i | y) is estimated as if no other feature existed",
+  "class_conditional_correlations": {
+    "fraud": {
+      "rows": 261,
+      "max_abs_r": 1.0,
+      "mean_abs_r": 0.24291594685442414,
+      "pairs": [
+        {
+          "a": "is_night",
+          "b": "rule_night_owl",
+          "r": 1.0
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "user_distinct_merchants_24h",
+          "r": 0.998
+        },
+        {
+          "a": "log_amount",
+          "b": "merchant_amt_percentile",
+          "r": 0.97
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "user_txn_count_24h",
+          "r": 0.904
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "user_distinct_merchants_24h",
+          "r": 0.896
+        },
+        {
+          "a": "log_seconds_since_prev",
+          "b": "rule_geographic_anomaly",
+          "r": -0.82
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "user_txn_count_7d",
+          "r": 0.809
+        },
+        {
+          "a": "user_txn_count_7d",
+          "b": "user_distinct_merchants_24h",
+          "r": 0.806
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "user_distinct_devices_7d",
+          "r": 0.795
+        },
+        {
+          "a": "geo_distance_km_prev",
+          "b": "distance_from_centroid_km",
+          "r": 0.79
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "user_distinct_devices_7d",
+          "r": 0.768
+        },
+        {
+          "a": "user_distinct_merchants_24h",
+          "b": "user_distinct_devices_7d",
+          "r": 0.76
+        },
+        {
+          "a": "geo_distance_km_prev",
+          "b": "log1p_implied_speed_kmh",
+          "r": 0.702
+        },
+        {
+          "a": "user_txn_count_7d",
+          "b": "user_distinct_devices_7d",
+          "r": 0.696
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "user_txn_count_7d",
+          "r": 0.692
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "log_seconds_since_prev",
+          "r": -0.662
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "log_seconds_since_prev",
+          "r": -0.645
+        },
+        {
+          "a": "user_distinct_merchants_24h",
+          "b": "log_seconds_since_prev",
+          "r": -0.642
+        },
+        {
+          "a": "log_amount",
+          "b": "amt_zscore_user",
+          "r": 0.615
+        },
+        {
+          "a": "amt_zscore_user",
+          "b": "amt_ratio_user_mean",
+          "r": 0.613
+        },
+        {
+          "a": "amt_zscore_user",
+          "b": "merchant_amt_percentile",
+          "r": 0.6
+        },
+        {
+          "a": "merchant_amt_percentile",
+          "b": "rule_enumeration",
+          "r": -0.594
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "rule_geographic_anomaly",
+          "r": 0.591
+        },
+        {
+          "a": "user_distinct_cities_24h",
+          "b": "rule_geographic_anomaly",
+          "r": 0.589
+        },
+        {
+          "a": "user_distinct_devices_7d",
+          "b": "log_seconds_since_prev",
+          "r": -0.584
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "rule_geographic_anomaly",
+          "r": 0.567
+        },
+        {
+          "a": "log_amount",
+          "b": "rule_enumeration",
+          "r": -0.566
+        },
+        {
+          "a": "user_distinct_merchants_24h",
+          "b": "rule_geographic_anomaly",
+          "r": 0.564
+        },
+        {
+          "a": "log1p_implied_speed_kmh",
+          "b": "distance_from_centroid_km",
+          "r": 0.563
+        },
+        {
+          "a": "user_distinct_devices_7d",
+          "b": "rule_geographic_anomaly",
+          "r": 0.563
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "merchant_amt_percentile",
+          "r": -0.561
+        },
+        {
+          "a": "hour_cos",
+          "b": "rule_night_owl",
+          "r": 0.548
+        },
+        {
+          "a": "hour_cos",
+          "b": "is_night",
+          "r": 0.548
+        },
+        {
+          "a": "hour_sin",
+          "b": "rule_night_owl",
+          "r": 0.548
+        },
+        {
+          "a": "hour_sin",
+          "b": "is_night",
+          "r": 0.548
+        },
+        {
+          "a": "log_amount",
+          "b": "amt_ratio_user_mean",
+          "r": 0.546
+        },
+        {
+          "a": "merchant_amt_percentile",
+          "b": "rule_new_device",
+          "r": -0.533
+        },
+        {
+          "a": "user_distinct_cities_24h",
+          "b": "log_seconds_since_prev",
+          "r": -0.53
+        },
+        {
+          "a": "log1p_implied_speed_kmh",
+          "b": "merchant_amt_percentile",
+          "r": 0.523
+        },
+        {
+          "a": "log_amount",
+          "b": "log1p_implied_speed_kmh",
+          "r": 0.523
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "merchant_amt_percentile",
+          "r": -0.517
+        },
+        {
+          "a": "user_distinct_merchants_24h",
+          "b": "merchant_amt_percentile",
+          "r": -0.51
+        },
+        {
+          "a": "user_txn_count_7d",
+          "b": "log_seconds_since_prev",
+          "r": -0.507
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "rule_new_device",
+          "r": 0.507
+        },
+        {
+          "a": "log_amount",
+          "b": "user_txn_count_1h",
+          "r": -0.501
+        },
+        {
+          "a": "log_seconds_since_prev",
+          "b": "rule_enumeration",
+          "r": -0.488
+        },
+        {
+          "a": "log_amount",
+          "b": "user_txn_count_24h",
+          "r": -0.472
+        },
+        {
+          "a": "amt_ratio_user_mean",
+          "b": "merchant_amt_percentile",
+          "r": 0.469
+        },
+        {
+          "a": "log_amount",
+          "b": "user_distinct_merchants_24h",
+          "r": -0.465
+        },
+        {
+          "a": "user_distinct_cities_24h",
+          "b": "log1p_implied_speed_kmh",
+          "r": 0.46
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "rule_enumeration",
+          "r": 0.457
+        },
+        {
+          "a": "user_distinct_merchants_24h",
+          "b": "user_distinct_cities_24h",
+          "r": 0.453
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "user_distinct_cities_24h",
+          "r": 0.451
+        },
+        {
+          "a": "geo_distance_km_prev",
+          "b": "merchant_amt_percentile",
+          "r": 0.447
+        },
+        {
+          "a": "user_txn_count_7d",
+          "b": "rule_geographic_anomaly",
+          "r": 0.445
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "rule_enumeration",
+          "r": 0.435
+        },
+        {
+          "a": "log_seconds_since_prev",
+          "b": "merchant_amt_percentile",
+          "r": 0.434
+        },
+        {
+          "a": "log_seconds_since_prev",
+          "b": "rule_new_device",
+          "r": -0.434
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "rule_new_device",
+          "r": 0.433
+        },
+        {
+          "a": "user_distinct_merchants_24h",
+          "b": "rule_new_device",
+          "r": 0.431
+        },
+        {
+          "a": "user_distinct_devices_7d",
+          "b": "merchant_amt_percentile",
+          "r": -0.43
+        },
+        {
+          "a": "log_amount",
+          "b": "geo_distance_km_prev",
+          "r": 0.43
+        },
+        {
+          "a": "user_distinct_merchants_24h",
+          "b": "rule_enumeration",
+          "r": 0.425
+        },
+        {
+          "a": "user_distinct_cities_24h",
+          "b": "user_distinct_devices_7d",
+          "r": 0.421
+        },
+        {
+          "a": "rule_velocity",
+          "b": "rule_enumeration",
+          "r": 0.415
+        },
+        {
+          "a": "distance_from_centroid_km",
+          "b": "merchant_amt_percentile",
+          "r": 0.412
+        },
+        {
+          "a": "log_amount",
+          "b": "rule_new_device",
+          "r": -0.409
+        },
+        {
+          "a": "amt_zscore_user",
+          "b": "log_seconds_since_prev",
+          "r": 0.402
+        },
+        {
+          "a": "user_txn_count_7d",
+          "b": "user_distinct_cities_24h",
+          "r": 0.395
+        },
+        {
+          "a": "log_amount",
+          "b": "user_distinct_devices_7d",
+          "r": -0.394
+        },
+        {
+          "a": "log_amount",
+          "b": "distance_from_centroid_km",
+          "r": 0.393
+        },
+        {
+          "a": "amt_ratio_user_mean",
+          "b": "rule_amount_threshold",
+          "r": 0.385
+        },
+        {
+          "a": "user_txn_count_7d",
+          "b": "merchant_amt_percentile",
+          "r": -0.385
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "user_distinct_cities_24h",
+          "r": 0.37
+        },
+        {
+          "a": "log_amount",
+          "b": "log_seconds_since_prev",
+          "r": 0.361
+        },
+        {
+          "a": "user_distinct_devices_7d",
+          "b": "rule_new_device",
+          "r": 0.359
+        },
+        {
+          "a": "log_amount",
+          "b": "user_txn_count_7d",
+          "r": -0.352
+        },
+        {
+          "a": "amt_zscore_user",
+          "b": "user_txn_count_24h",
+          "r": -0.35
+        },
+        {
+          "a": "amt_zscore_user",
+          "b": "user_distinct_merchants_24h",
+          "r": -0.347
+        },
+        {
+          "a": "user_txn_count_7d",
+          "b": "rule_new_device",
+          "r": 0.343
+        },
+        {
+          "a": "amt_zscore_user",
+          "b": "rule_geographic_anomaly",
+          "r": -0.343
+        },
+        {
+          "a": "rule_enumeration",
+          "b": "rule_new_device",
+          "r": 0.339
+        },
+        {
+          "a": "amt_zscore_user",
+          "b": "user_txn_count_1h",
+          "r": -0.336
+        },
+        {
+          "a": "amt_ratio_user_mean",
+          "b": "log_seconds_since_prev",
+          "r": 0.332
+        },
+        {
+          "a": "amt_zscore_user",
+          "b": "rule_new_device",
+          "r": -0.33
+        },
+        {
+          "a": "log1p_implied_speed_kmh",
+          "b": "rule_enumeration",
+          "r": -0.325
+        },
+        {
+          "a": "user_distinct_devices_7d",
+          "b": "rule_enumeration",
+          "r": 0.322
+        },
+        {
+          "a": "amt_zscore_user",
+          "b": "distance_from_centroid_km",
+          "r": 0.32
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "distance_from_centroid_km",
+          "r": -0.316
+        },
+        {
+          "a": "amt_zscore_user",
+          "b": "user_distinct_devices_7d",
+          "r": -0.313
+        },
+        {
+          "a": "user_distinct_merchants_24h",
+          "b": "distance_from_centroid_km",
+          "r": -0.312
+        },
+        {
+          "a": "amt_zscore_user",
+          "b": "geo_distance_km_prev",
+          "r": 0.302
+        },
+        {
+          "a": "is_weekend",
+          "b": "rule_amount_threshold",
+          "r": 0.302
+        },
+        {
+          "a": "log_amount",
+          "b": "rule_amount_threshold",
+          "r": 0.302
+        },
+        {
+          "a": "log_seconds_since_prev",
+          "b": "rule_velocity",
+          "r": -0.3
+        }
+      ],
+      "top_pairs": [
+        {
+          "a": "is_night",
+          "b": "rule_night_owl",
+          "r": 1.0
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "user_distinct_merchants_24h",
+          "r": 0.998
+        },
+        {
+          "a": "log_amount",
+          "b": "merchant_amt_percentile",
+          "r": 0.97
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "user_txn_count_24h",
+          "r": 0.904
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "user_distinct_merchants_24h",
+          "r": 0.896
+        },
+        {
+          "a": "log_seconds_since_prev",
+          "b": "rule_geographic_anomaly",
+          "r": -0.82
+        }
+      ]
+    },
+    "legit": {
+      "rows": 23739,
+      "max_abs_r": 0.999999999999911,
+      "mean_abs_r": 0.07726945807352092,
+      "pairs": [
+        {
+          "a": "is_night",
+          "b": "rule_night_owl",
+          "r": 1.0
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "user_distinct_merchants_24h",
+          "r": 0.999
+        },
+        {
+          "a": "log_amount",
+          "b": "merchant_amt_percentile",
+          "r": 0.945
+        },
+        {
+          "a": "user_distinct_merchants_24h",
+          "b": "user_distinct_cities_24h",
+          "r": 0.907
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "user_distinct_cities_24h",
+          "r": 0.906
+        },
+        {
+          "a": "geo_distance_km_prev",
+          "b": "log1p_implied_speed_kmh",
+          "r": 0.889
+        },
+        {
+          "a": "geo_distance_km_prev",
+          "b": "distance_from_centroid_km",
+          "r": 0.747
+        },
+        {
+          "a": "user_txn_count_1h",
+          "b": "rule_geographic_anomaly",
+          "r": 0.698
+        },
+        {
+          "a": "log1p_implied_speed_kmh",
+          "b": "distance_from_centroid_km",
+          "r": 0.65
+        },
+        {
+          "a": "hour_cos",
+          "b": "rule_night_owl",
+          "r": 0.59
+        },
+        {
+          "a": "hour_cos",
+          "b": "is_night",
+          "r": 0.59
+        },
+        {
+          "a": "user_txn_count_7d",
+          "b": "user_distinct_devices_7d",
+          "r": 0.554
+        },
+        {
+          "a": "user_distinct_cities_24h",
+          "b": "log_seconds_since_prev",
+          "r": -0.446
+        },
+        {
+          "a": "hour_sin",
+          "b": "is_night",
+          "r": 0.445
+        },
+        {
+          "a": "hour_sin",
+          "b": "rule_night_owl",
+          "r": 0.445
+        },
+        {
+          "a": "user_distinct_merchants_24h",
+          "b": "log_seconds_since_prev",
+          "r": -0.43
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "log_seconds_since_prev",
+          "r": -0.429
+        },
+        {
+          "a": "log_amount",
+          "b": "amt_ratio_user_mean",
+          "r": 0.427
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "user_txn_count_7d",
+          "r": 0.414
+        },
+        {
+          "a": "user_txn_count_7d",
+          "b": "user_distinct_merchants_24h",
+          "r": 0.414
+        },
+        {
+          "a": "amt_ratio_user_mean",
+          "b": "merchant_amt_percentile",
+          "r": 0.39
+        },
+        {
+          "a": "user_txn_count_7d",
+          "b": "user_distinct_cities_24h",
+          "r": 0.382
+        },
+        {
+          "a": "log_seconds_since_prev",
+          "b": "rule_geographic_anomaly",
+          "r": -0.319
+        }
+      ],
+      "top_pairs": [
+        {
+          "a": "is_night",
+          "b": "rule_night_owl",
+          "r": 1.0
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "user_distinct_merchants_24h",
+          "r": 0.999
+        },
+        {
+          "a": "log_amount",
+          "b": "merchant_amt_percentile",
+          "r": 0.945
+        },
+        {
+          "a": "user_distinct_merchants_24h",
+          "b": "user_distinct_cities_24h",
+          "r": 0.907
+        },
+        {
+          "a": "user_txn_count_24h",
+          "b": "user_distinct_cities_24h",
+          "r": 0.906
+        },
+        {
+          "a": "geo_distance_km_prev",
+          "b": "log1p_implied_speed_kmh",
+          "r": 0.889
+        }
+      ]
+    }
+  },
+  "duplicate_feature_pairs": [
+    {
+      "a": "is_night",
+      "b": "rule_night_owl",
+      "r": 1.0
+    },
+    {
+      "a": "user_txn_count_24h",
+      "b": "user_distinct_merchants_24h",
+      "r": 0.999
+    }
+  ],
+  "naive_bayes": {
+    "pr_auc": 0.749537,
+    "log_loss": 0.343834,
+    "ece": 0.029829,
+    "extreme_share": 0.991375,
+    "mean_abs_log_odds": 26.599241
+  },
+  "logistic_reference": {
+    "pr_auc": 0.957029,
+    "log_loss": 0.053981,
+    "ece": 0.027269,
+    "extreme_share": 0.818375,
+    "mean_abs_log_odds": 8.005748
+  },
+  "overconfidence": {
+    "extreme_share_nb": 0.9914,
+    "extreme_share_logistic": 0.8184,
+    "mean_abs_log_odds_nb": 26.6,
+    "mean_abs_log_odds_logistic": 8.01,
+    "ece_nb": 0.0298,
+    "ece_logistic": 0.0273,
+    "log_loss_nb": 0.343834,
+    "log_loss_logistic": 0.053981,
+    "log_loss_ratio": 6.37,
+    "ece_caveat": "ECE averages error over bins; when nearly all predictions fall in the two extreme bins it understates the damage, so log-loss and the extreme share are the load-bearing numbers"
+  },
+  "ablation": {
+    "dropped_features": [
+      "user_txn_count_24h",
+      "user_distinct_merchants_24h",
+      "log_seconds_since_prev",
+      "merchant_amt_percentile",
+      "log_amount",
+      "user_txn_count_1h",
+      "user_txn_count_7d",
+      "user_distinct_devices_7d"
+    ],
+    "nb_reduced": {
+      "pr_auc": 0.760145,
+      "log_loss": 0.207057,
+      "ece": 0.022226,
+      "extreme_share": 0.987875
+    },
+    "control_features": [
+      "merchant_dispute_rate_asof",
+      "is_weekend",
+      "rule_velocity",
+      "rule_amount_threshold",
+      "hour_sin",
+      "hour_cos",
+      "amt_ratio_user_mean",
+      "rule_new_device"
+    ],
+    "nb_control_least_correlated": {
+      "pr_auc": 0.357271,
+      "log_loss": 0.51981,
+      "ece": 0.049445,
+      "extreme_share": 0.975875
+    }
+  },
+  "verdict": "Naive Bayes' conditional-independence assumption is violated here. Its evidence is multiplied once per *feature* instead of once per *fact*, so 99.1% of its predictions land below 0.01 or above 0.99 (logistic: 81.8%) and its mean |log-odds| is 26.6 against logistic's 8.0. The cost shows up in log-loss (0.3438 vs 0.0540, 6.4\u00d7 worse) more than in ECE (0.0298 vs 0.0273), because ECE averages over bins and most of its mass is in the same two bins. The ablation isolates the double-counting: dropping one feature from each strongly correlated pair gives log-loss 0.2071, while dropping the same number of *uncorrelated* features gives 0.5198. Removing redundant evidence helps more than removing independent evidence, which is what a double-count looks like."
+}

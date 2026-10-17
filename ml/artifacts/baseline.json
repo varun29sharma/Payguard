@@ -1,0 +1,137 @@
+{
+  "counterexample": [
+    {
+      "accumulated_score": 82,
+      "accumulated_status": "blocked",
+      "averaged_score": 65,
+      "averaged_status": "review",
+      "case": "AMOUNT_THRESHOLD_RULE alone",
+      "fired_scores": [
+        65
+      ]
+    },
+    {
+      "accumulated_score": 92,
+      "accumulated_status": "blocked",
+      "averaged_score": 52,
+      "averaged_status": "review",
+      "case": "AMOUNT_THRESHOLD + NIGHT_OWL",
+      "fired_scores": [
+        65,
+        40
+      ]
+    },
+    {
+      "accumulated_score": 90,
+      "accumulated_status": "blocked",
+      "averaged_score": 80,
+      "averaged_status": "blocked",
+      "case": "IMPOSSIBLE_TRAVEL alone (GEO)",
+      "fired_scores": [
+        80
+      ]
+    },
+    {
+      "accumulated_score": 95,
+      "accumulated_status": "blocked",
+      "averaged_score": 60,
+      "averaged_status": "review",
+      "case": "GEO + NIGHT_OWL",
+      "fired_scores": [
+        80,
+        40
+      ]
+    },
+    {
+      "accumulated_score": 100,
+      "accumulated_status": "blocked",
+      "averaged_score": 61,
+      "averaged_status": "review",
+      "case": "GEO + NIGHT_OWL + VELOCITY + AMOUNT",
+      "fired_scores": [
+        80,
+        40,
+        60,
+        65
+      ]
+    }
+  ],
+  "flags": [
+    "Labels come from disputes/dataset \u2014 never from rulesTriggered.",
+    "Rules are evaluated on their live decision, not a re-tuned version."
+  ],
+  "generated_at": "2026-10-11T09:45:40+00:00",
+  "metrics": {
+    "accuracy": 0.74105,
+    "brier": 0.04996591580073275,
+    "confusion": {
+      "fn": 42,
+      "fp": 5137,
+      "tn": 14613,
+      "tp": 208
+    },
+    "ece": 0.10844226724999999,
+    "f1": 0.07435210008936552,
+    "flagged_rate": 0.26725,
+    "log_loss": 0.17700371907892376,
+    "pr_auc": 0.2560280259285837,
+    "precision": 0.03891487371375117,
+    "recall": 0.832,
+    "roc_auc": 0.8797995949367089
+  },
+  "n": 20000,
+  "notation": "no city column -> GEOGRAPHIC_ANOMALY_RULE coverage limited",
+  "per_rule": [
+    {
+      "caught": 150,
+      "false_alarms": 0,
+      "fired": 150,
+      "precision": 1.0,
+      "recall": 0.6,
+      "rule": "NEW_DEVICE_RULE"
+    },
+    {
+      "caught": 132,
+      "false_alarms": 251,
+      "fired": 383,
+      "precision": 0.34464751958224543,
+      "recall": 0.528,
+      "rule": "GEOGRAPHIC_ANOMALY_RULE"
+    },
+    {
+      "caught": 48,
+      "false_alarms": 4938,
+      "fired": 4986,
+      "precision": 0.009626955475330927,
+      "recall": 0.192,
+      "rule": "NIGHT_OWL_RULE"
+    },
+    {
+      "caught": 44,
+      "false_alarms": 0,
+      "fired": 44,
+      "precision": 1.0,
+      "recall": 0.176,
+      "rule": "ENUMERATION_ATTACK_RULE"
+    },
+    {
+      "caught": 11,
+      "false_alarms": 3,
+      "fired": 14,
+      "precision": 0.7857142857142857,
+      "recall": 0.044,
+      "rule": "AMOUNT_THRESHOLD_RULE"
+    },
+    {
+      "caught": 10,
+      "false_alarms": 0,
+      "fired": 10,
+      "precision": 1.0,
+      "recall": 0.04,
+      "rule": "VELOCITY_RULE"
+    }
+  ],
+  "positives": 250,
+  "prevalence": 0.0125,
+  "source": "synthetic-demo"
+}
