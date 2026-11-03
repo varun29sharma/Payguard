@@ -11,7 +11,6 @@
  */
 const RuleConfig = require('../models/RuleConfig');
 const { ValidationError } = require('../utils/errors');
-const { checkRuleConsistency: callRuleChecker } = require('../utils/mlServiceClient');
 
 const DEFAULT_RULES = [
   {
@@ -137,46 +136,9 @@ const updateRuleConfig = async (ruleName, patch) => {
   return fresh.find(r => r.ruleName === ruleName);
 };
 
-/**
- * Statically analyse the *current* rule configuration (Phase 3, UNIT-II).
- *
- * This is the check that turns the wrap-around bug from something a careful
- * reader might notice into something the product states out loud. The analysis
- * itself lives in `ml/payguard_ml/rulelogic.py` — a compact CNF over threshold
- * atoms decided by resolution refutation — and is reached through the sidecar,
- * because the checker is the same code the offline tests exercise. Reimplementing
- * it in JavaScript would create the one thing this codebase keeps avoiding: a
- * second implementation of a rule that can drift from the first.
- *
- * Returns `{ available: false, reason }` when the sidecar is down. It never
- * reports a clean bill of health it did not actually compute.
- */
-const checkRuleConsistency = async () => {
-  const configs = await getRuleConfigs();
-  const rules = configs.map(({ ruleName, enabled, score, parameters }) => ({
-    ruleName,
-    enabled,
-    score,
-    parameters,
-  }));
-  const result = await callRuleChecker(rules);
-  if (!result.available) return result;
-  return {
-    ...result,
-    checkedAt: new Date(),
-    // Point each issue at the rule it concerns so the Rules screen can render
-    // the warning on the rule's own card without re-deriving the mapping.
-    byRule: (result.issues || []).reduce((acc, issue) => {
-      (acc[issue.rule] = acc[issue.rule] || []).push(issue);
-      return acc;
-    }, {}),
-  };
-};
-
 module.exports = {
   getRuleConfigs,
   ensureDefaultRules,
   updateRuleConfig,
-  checkRuleConsistency,
   DEFAULT_RULES,
 };

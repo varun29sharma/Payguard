@@ -2,7 +2,6 @@
  * ruleRoutes.js — management API for the fraud engine's runtime rule config.
  *
  *   GET /api/rules              list all rules with current config (DB + defaults)
- *   GET /api/rules/consistency  static analysis of the *current* config (Phase 3)
  *   PUT /api/rules/:ruleName    update { enabled?, score?, parameters? }
  *
  * Changes apply to the very next scoring request — the Node client ships the
@@ -21,15 +20,6 @@ const ruleConfigService = require('../services/ruleConfigService');
 router.get('/', protect, asyncHandler(async (req, res) => {
   const rules = await ruleConfigService.getRuleConfigs();
   res.json({ success: true, data: rules });
-}));
-
-// Declared BEFORE '/:ruleName' so Express does not route "consistency" into the
-// rule-name parameter.
-router.get('/consistency', protect, asyncHandler(async (req, res) => {
-  const analysis = await ruleConfigService.checkRuleConsistency();
-  // 200 either way: "the checker is unavailable" is a valid, honest answer and
-  // the UI has to be able to render it. `available` is the field that matters.
-  res.json({ success: true, data: analysis });
 }));
 
 router.put('/:ruleName', protect, asyncHandler(async (req, res) => {

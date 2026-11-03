@@ -1,485 +1,103 @@
-# PAYGUARD<span style="color:#FF3B00">!</span>
+# PayGuard
 
-**Real-time fraud intelligence for UPI & payment networks.**
+Real-time fraud detection for payment transactions. Every transaction is checked against a blocklist and scored by a set of fraud rules before it is saved. Transactions that look suspicious create an alert for a human analyst, who can block the user — and, through an identity graph, every account connected to them.
 
-Every transaction gets a decision. Nothing gets deleted. And the platform is honest about it — when the scoring engine is down, it says so, openly, instead of pretending everything is fine.
+This README is written in plain technical language on purpose: every term here is the term used in the code. For a function-by-function walkthrough, see **FUNCTION-GUIDE.md**.
 
----
+## Architecture — 3 services + 1 offline script
 
-## Table of contents
-
-1. [The one-minute read](#the-one-minute-read)
-2. [The restaurant — the master analogy](#the-restaurant)
-3. [The menu of problems](#the-menu-of-problems)
-4. [The kitchen — the Java scoring engine](#the-kitchen)
-5. [The maître d' — the Node server](#the-maître-d)
-6. [The black book & family tree — blocklist and identity graph](#the-black-book--family-tree)
-7. [The recipe book — runtime rule configuration](#the-recipe-book)
-8. [The tasting room — the backtest harness](#the-tasting-room)
-9. [The health inspector — disputes and detection rates](#the-health-inspector)
-10. [The food critic — how good are the rules, actually?](#the-food-critic)
-11. [The cash-out watch — mule detection](#the-cash-out-watch)
-12. [The security guard — auth, rate limits, headers](#the-security-guard)
-13. [The dining room — the screens](#the-dining-room)
-14. [A dish's journey — one transaction, end to end](#a-dishs-journey)
-15. [Architecture](#architecture)
-16. [Quick start](#quick-start)
-17. [Production notes](#production-notes)
-18. [Summary](#summary)
-
----
-
-## The one-minute read
-
-PayGuard is a four-part fraud-intelligence platform for payment networks. A **Java scoring engine** evaluates every transaction against six fraud rules before it commits; a **Node.js API** orchestrates the pipeline, blocks fraud rings through an identity graph, and detects laundering patterns; a **React dashboard** gives the analyst a calm, real-time view of everything — with runtime-tunable rules, a backtest harness to prove rule changes before deploying them, and a dispute loop that measures how well the system actually catches the fraud it now knows about. And an **ML workspace** (`ml/`) measures that rules engine honestly against externally-labelled data — and is replacing its score-averaging with a calibrated model.
-
-The whole thing is built like a fine-dining restaurant, and every part of the system maps to something in that restaurant. That analogy is the skeleton of this document — read it once and the architecture stays with you.
-
----
-
-## The restaurant
-
-Think of PayGuard as a fine-dining restaurant where every dish is inspected before it leaves the kitchen, the recipe book can be rewritten live, and the health inspector's reports come back to the chef so the menu keeps improving.
-
-| The restaurant | PayGuard | What it does |
-|---|---|---|
-| **The dining room** | React dashboard | A clean, Swiss-editorial floor where the maître d' (analyst) watches every table in real time — new dishes, rejected plates, suspicious activity — the moment it happens. |
-| **The maître d'** | Node.js + Express API | Takes every order (transaction), checks the black book, sends each dish to the kitchen for inspection, and only lets an order out that passes — with a final re-check at the door so a dish blocked mid-flight is never reported as served. |
-| **The kitchen** | Java scoring engine | A dedicated Spring Boot kitchen where six specialist inspectors evaluate every dish before it's served. |
-| **The recipe book** | Runtime rule configuration | The head chef rewrites thresholds — portion sizes, speed limits, opening hours — live, without retraining the kitchen. The kitchen reads the recipe with every dish it cooks. |
-| **The tasting room** | Backtest harness | Before changing the menu, the chef tries the new recipe against *yesterday's actual diners*: what would have been flagged, blocked, or missed. |
-| **The health inspector** | Dispute / chargeback loop | Official confirmation that a meal was bad. The kitchen's catch-rate per inspector is then measured against reality — of the fraud we now know about, who caught it? |
-| **The suspicious cash-out** | Mule detection | A server who collects cash from many tables and hands most of it to one courier within a shift is flagged. Staff sharing a locker are one operation. |
-| **The black book & family tree** | Blocklist + identity graph | Ban one guest and everyone who ever shared their table, credit card, phone, or device is turned away too — one block stops the whole ring. |
-| **The security guard** | Auth, API keys, rate limits, security headers | Only staff and trusted delivery partners get in, and the door stops brute-force key guessing. |
-| **The kitchen display** | Socket.IO | Every dish's fate appears on the floor instantly — new transactions, alerts, engine health, mule rings — all pushed live. |
-| **The ledger** | MongoDB | Every order ever taken is recorded permanently: transactions, alerts, blocks, rule configs, disputes, rings. Nothing is ever deleted. |
-
-Every section below is one of these characters, in depth.
-
----
-
-## The menu of problems
-
-Why does a restaurant need six inspectors at all? Because the fraud this system defends against is not one thing — it's a menu of distinct, well-studied attacks, and each one has a signature.
-
-- **Enumeration / card testing.** Attackers probe card numbers with many tiny transactions (under ₹50 — deliberately below classic velocity limits) until one succeeds. *Signature: a burst of micro-transactions.*
-- **Velocity abuse.** A compromised account is drained with many rapid transactions before the victim notices. *Signature: more orders from one table than any human could place.*
-- **High-value payouts.** Account-takeover attackers move large amounts in a single shot. *Signature: one dish far above the guest's normal spend.*
-- **NFC relay / card sharing.** A card's data is replayed from a geographically distant location moments after a legitimate use. *Signature: one guest "ordering" from two cities at once.*
-- **Account takeover.** An attacker logs in from their own hardware. *Signature: a regular ordering from a device they've never used.*
-- **Bots.** Automated scripts operate outside human hours. *Signature: activity in the dead of night.*
-- **Mule laundering.** Money is received from many victims and quickly forwarded to a single beneficiary — the mule keeps a cut. *Signature: receive-and-forward within hours, across many senders.*
-
-The kitchen's six inspectors exist to catch these signatures. The identity graph, the dispute loop, and the mule detector exist to catch the *rings* those signatures form.
-
----
-
-## The kitchen
-
-The kitchen is the **Java + Spring Boot microservice** (`fraud-engine/`, port 8080) — a separate process so it can scale and be tuned independently of the rest of the system. It exposes two endpoints:
-
-- `POST /api/fraud/score` — evaluate one transaction, return a score and the rules that fired.
-- `POST /api/fraud/backtest` — replay a batch of historical transactions under a candidate configuration (used by the tasting room).
-- `GET /api/fraud/health` — report the kitchen's status, uptime, and the rules it can enforce.
-
-### The six inspectors
-
-| Inspector | Rule | Default threshold | Score | Catches |
+| Part | Folder | Stack | Port | Job |
 |---|---|---|---|---|
-| **Portion-size checker** | `AMOUNT_THRESHOLD_RULE` | amount > ₹1,00,000 | 65 | High-value payouts |
-| **Speed checker** | `VELOCITY_RULE` | > 5 transactions in 60s per user | 60 | Velocity abuse, account draining |
-| **Micro-sampling checker** | `ENUMERATION_ATTACK_RULE` | ≥ 8 micro-transactions (≤ ₹50) in 30 min | 75 | Card testing / enumeration |
-| **Impossible-travel checker** | `GEOGRAPHIC_ANOMALY_RULE` | 2+ cities within 120 min per user | 80 | NFC relay / card sharing |
-| **Unfamiliar-face checker** | `NEW_DEVICE_RULE` | first use of a device for a user | 55 | Account takeover |
-| **After-hours checker** | `NIGHT_OWL_RULE` | between 00:00–05:00 local | 40 | Bots, off-hours scripts |
+| Dashboard | `client/` | React + Vite | 5173 | Analyst UI: live feed, alerts, rules, simulator |
+| API server | `server/` | Node.js + Express, MongoDB, Socket.IO | 3000 | Orchestrates everything: auth, blocklist, pipeline, alerts |
+| Fraud engine | `fraud-engine/` | Java 17 + Spring Boot | 8080 | Scores one transaction against 6 rules |
+| ML experiment | `ml/` | Python (standard library only) | — | Offline only. Shows how a model would learn from labelled data. Not part of the live system. |
 
-### How a dish is scored
+## How a transaction flows through the system
 
-Each inspector examines the transaction and either passes it (no signal) or raises a flag with a **severity score**. The dish's final fraud score is the **average of every rule that fired**:
+`server/services/transactionService.js` → `createTransaction()`:
 
-- **0–39 → `clear`** — served normally.
-- **40–69 → `review`** — served, but an **alert** is raised for the analyst (this is what fills the triage queue).
-- **70+ → `blocked`** — refused at the door.
+1. **Blocklist check.** All identifiers on the transaction (user, device, account, fingerprint, session, IP, wallet, email, phone) are checked against the blocklist. A hit is saved as `blocked` with score 100 and never reaches the engine.
+2. **Scoring.** The transaction is sent to the Java engine (`POST /api/fraud/score`, 3-second timeout) together with the current rule configuration. If the engine is down, the transaction is saved with score 0 and `scoringEngine: 'fallback'` — visibly unscored, never silently passed off as checked.
+3. **Blocklist re-check.** Scoring takes time. If the user was blocked *while* scoring was in progress, the step-1 answer is stale, so the blocklist is checked again immediately before saving. A hit here means the API answers 403.
+4. **Save + alert.** The transaction is saved with its score and the rules that fired. If the status is not `clear`, a `FraudAlert` is created and pushed to the dashboard in real time via an event bus → Socket.IO.
 
-Two rules carry their own state: the speed checker and micro-sampling checker keep a sliding window of recent transactions per user, and the unfamiliar-face checker *remembers* devices it has seen so legitimate repeat orders don't re-trigger it.
+## The fraud engine (Java)
 
-### Why the kitchen is a pure function
+Six rules, one class each, all implementing the same interface (`FraudRule.evaluate()`) — this is the Strategy pattern: adding a rule means adding one class, nothing else changes.
 
-The kitchen holds no configuration of its own. Every scoring request carries the current rule configuration (see [the recipe book](#the-recipe-book)), so a fleet of kitchen instances can never serve stale rules, and a config change applies to the very next transaction — no restart, no redeploy.
-
-And critically: when the tasting room runs a backtest, the kitchen **builds brand-new inspector instances per run**. Replayed history never touches the live inspectors' sliding windows, and the backtest is a clean, isolated "what-if."
-
----
-
-## The maître d'
-
-The maître d' is the **Node.js + Express server** (`server/`, port 3000). It runs the floor: it takes every order, knows the black book, talks to the kitchen, and decides what actually leaves. It also runs the real-time display, the detectors, and the analytics.
-
-### The four-step service pipeline
-
-Every transaction passes through the same four steps in `services/transactionService.js`:
-
-1. **The black book check.** Every identifier on the order (user, device, IP, fingerprint, email, phone, …) is checked against the blocklist. If any is blocked, the dish is rejected immediately with a `BLOCK_LIST` flag at score 100 — it never reaches the kitchen.
-2. **The kitchen's verdict.** The order is sent to the Java engine for scoring (3-second timeout). If the kitchen is unreachable, the maître d' does **not** fake a verdict — it serves the dish marked `scoringEngine: 'fallback'`, records the fallback, and the UI shows a blinking **ENGINE: FALLBACK** so everyone knows these orders were let through unscored.
-3. **The final re-check.** The moment before commit, the black book is checked *again*. This closes the race window: if the entity was blocked *while* the dish was being scored, the dish is rejected mid-flight and **never reported as successful** — a blocked transaction is never reported as served (a real bug this architecture was rebuilt to fix).
-4. **The commit.** The transaction is saved with its score, status, triggered rules, and scoring source. If it scored `review` or `blocked`, a **FraudAlert** is created for the triage queue, and campaign detection is nudged.
-
-### The event bus and the kitchen display
-
-All domain events — `NEW_TRANSACTION`, `NEW_FRAUD_ALERT`, `BLOCK_CREATED`, `ENGINE_HEALTH`, `MULE_RING_NEW`, `DISPUTE_INGESTED`, and more — are emitted onto a **central event bus** (`events/eventBus.js`). One bridge (`events/socketBridge.js`) forwards them to **Socket.IO**, so the dining room updates the moment anything happens. Adding a new live event touches exactly one file.
-
-### The detectives
-
-The maître d' also runs periodic detectives on a schedule:
-
-- **Campaign detection** (every 60s) — scans recent fraud alerts for coordinated patterns: a device shared across many accounts, a merchant cluster, an enumeration wave, a relay-fraud cluster, or a velocity burst. Each becomes a **Campaign** with severity and exposure.
-- **Mule detection** (every 45s) — sees [the cash-out watch](#the-cash-out-watch).
-
----
-
-## The black book & family tree
-
-The **blocklist** (`BlockList` model + `services/blocklistService.js`) is the black book of banned entities. But the maître d' keeps something more powerful: a **family tree** of who is connected to whom.
-
-The **identity graph** (`services/identityGraphService.js`) treats every identifier — user, device, IP, account, fingerprint, session, wallet, email, phone — as a node, and every transaction as evidence that all its identifiers belong to the same person or operation. When you block one identifier, the graph runs a **breadth-first traversal to a fixed point**: it finds every transaction touching that identifier, collects every other identifier on those transactions, and repeats until no new identifiers surface.
-
-The result: **blocking one user blocks their device, their IP, their card fingerprint, their email — and every other account that ever shared any of them.** A fraud ring can't just switch accounts. This cascade is atomic: queued transactions touching any blocked identifier are rejected, open alerts are auto-resolved, and everything is written to an immutable audit trail (`AuditLog`, `BlockedActivityLog`). **Nothing is ever deleted** — blocked entities, rejected transactions, and resolved alerts are archived permanently for regulators and review.
-
----
-
-## The recipe book
-
-Rules are not hardcoded in the kitchen — they live in **MongoDB** (`RuleConfig` model), managed by the maître d', and shipped with every scoring request.
-
-- **`GET /api/rules`** lists all six rules with their current enabled state, severity, and thresholds (DB values overlaid on built-in defaults, so the list is always complete).
-- **`PUT /api/rules/:ruleName`** updates `{ enabled?, score?, parameters? }` — disable a rule entirely, change its severity, or tune its thresholds (`minAmount`, `maxTransactions`, `windowSeconds`, `windowMinutes`, `startHour`/`endHour`, …).
-
-The Node server keeps a 5-second cache so the per-transaction hot path doesn't hit Mongo every time, and invalidates it the moment a config changes. Because the config travels *with* each request, the change is live on the **very next transaction** — the head chef rewrote the recipe, and the kitchen reads it with the next dish. There is no restart, no redeploy, no version skew across a fleet.
-
-The **`07 RULES`** screen is the chef's workstation: one card per rule, with an on/off toggle, severity field, and threshold inputs.
-
----
-
-## The tasting room
-
-Before the head chef commits a new recipe to the menu, they try it on *yesterday's actual diners*. That's the **backtest harness** (`POST /api/backtest`).
-
-### How it works
-
-1. You propose a change to one rule — e.g. "lower `minAmount` from ₹1,00,000 to ₹50,000", or "disable `NIGHT_OWL_RULE`".
-2. The maître d' pulls a chronological sample of real transactions (last 24h / 7d / 30d, up to 2,000).
-3. It replays that sample through the kitchen **twice**: once with the **current** recipe (baseline) and once with the **proposed** recipe (candidate). Each replay runs on fresh, isolated rule instances, so both runs start from a clean state and the comparison is apples-to-apples.
-4. It reports what would have happened.
-
-### What it reports
-
-- **Headline deltas** — flagged before → after, blocked before → after, average score before → after.
-- **Would newly flag / would stop flagging** — the transactions whose fate changes under the candidate.
-- **Per-rule coverage** — how many times each rule would trigger under both recipes.
-- **A false-positive proxy** — derived from real analyst labels: alerts resolved as `false_positive` mean an analyst decided the flag was wrong; `resolved`/`escalated` mean it was actioned. The harness counts both among candidate-flagged transactions, plus how many candidate flags are unlabeled (the honest "we don't know yet" bucket).
-- **A per-transaction table** — recorded reality vs baseline replay vs candidate replay, row by row.
-
-The **`08 BACKTEST`** screen is the tasting room: pick a rule, tweak it, pick a window, and see the before/after in one click. This is what turns rule tuning from guesswork into evidence — and it's the same evidence a bank or regulator would want before a rules change ships.
-
----
-
-## The health inspector
-
-The **dispute / chargeback loop** (`09 DISPUTES`) closes the circle. A dispute is *external ground truth*: the cardholder or issuer confirms that a past transaction was fraud. That confirmation lets the system answer the question every fraud platform is judged on — *of the fraud we now know about, what did each rule actually catch at scoring time?*
-
-### Ingesting a dispute
-
-`POST /api/disputes` with `{ transactionId, reason, status, notes }`:
-
-- The dispute is recorded immutably in the `Dispute` ledger (who filed it, when, why).
-- If the reason is fraud-type (`fraud`, `unauthorized`, `stolen_card`, `account_takeover`) **or** the dispute was `lost` (the issuer sided with the cardholder — money returned), the transaction is labelled **confirmed fraud** (`isConfirmedFraud` on the `Transaction`).
-- Non-fraud disputes (duplicate charge, goods not received, …) are recorded but don't label — a customer complaint is not evidence of fraud.
-- Unknown transaction → 404; exact duplicate dispute → 409; unauthenticated → 401.
-
-### The detection report
-
-`GET /api/disputes/detection` computes, over all confirmed-fraud transactions:
-
-- **Caught at scoring time** vs **missed** (scored clear), and the overall detection rate.
-- The **average score at the time** for caught vs missed.
-- A **per-rule detection rate** table: of the fraud we now know about, how many times did each inspector catch it?
-
-Crucially, this uses the rules that *actually* fired when the transaction was scored — stored history, not hindsight. If a confirmed-fraud transaction was scored clear, the report shows it as a miss, with an average score of 0, and no rule gets credit for catching it. That is the honest feedback loop: the health inspector's reports come back to the chef, and underperforming rules become visible — ready for the tasting room to fix.
-
----
-
-## The food critic
-
-Every good restaurant eventually invites someone who will say, in print, what the food is *actually* like — including when it is not good. The health inspector measures compliance; the critic measures quality. This section is the critic, and it exists because of two uncomfortable truths about the kitchen.
-
-### Flaw 1: averaging rule scores means more evidence can mean less suspicion
-
-`FraudScoringService.score` sets the final score to the **mean** of every rule that fired:
-
-```java
-int finalScore = triggered.isEmpty() ? 0 : (int) triggered.stream()
-        .mapToInt(FraudResult.RuleResult::getScore)
-        .average()
-        .orElse(0);
-```
-
-Work through what that implies. A ₹2,50,000 transaction fires `AMOUNT_THRESHOLD_RULE` alone: score 65 → `review`. Now it *also* happens at 3 AM, so `NIGHT_OWL_RULE` (40) fires: (65+40)/2 = 52.5, truncated to **52**. More evidence of fraud, lower score. The pathological case is sharper: impossible travel (80) alone is `blocked`; impossible travel plus an after-hours signal is (80+40)/2 = **60** → `review`. A rule firing has moved the transaction into a strictly *more permissive* band.
-
-One precision note, because a reviewer will check it: `fraudStatus: 'blocked'` is currently a label plus an alert, not a declined authorisation — both `review` and `blocked` commit and return 201, and the only genuine 403 is a blocklist hit. So the cost today is misrouted triage and a distorted risk ordering rather than fraud slipping through a gate. That is still a real cost, because the whole point of the score is to rank what an analyst looks at.
-
-This is not a bug you patch with better thresholds — it is the wrong *aggregation function*. Evidence should accumulate. The mathematically correct way to accumulate independent evidence is to add log-odds, not average scores:
-
-```
-log( P(fraud) / P(not fraud) )  =  b + w₁x₁ + w₂x₂ + ... + wₙxₙ
-```
-
-Each additional firing rule with a positive weight can only increase the score. That is logistic regression, and it is a drop-in replacement for the four lines above.
-
-| fired rules | scores | average | status | log-odds | status |
-|---|---|---|---|---|---|
-| `AMOUNT_THRESHOLD` alone | 65 | 65 | review | 82 | blocked |
-| `AMOUNT_THRESHOLD` + `NIGHT_OWL` | 65, 40 | 52 | review | 92 | blocked |
-| impossible travel alone | 80 | 80 | blocked | 90 | blocked |
-| impossible travel + `NIGHT_OWL` | 80, 40 | 60 | **review** | 95 | **blocked** |
-
-The table is generated, not hand-written — `payguard_ml.baseline.averaging_flaw_counterexample()`, with a test that fails if the averaging defect ever stops reproducing.
-
-### Flaw 2: the simulator's data cannot train anything
-
-The simulator generates exactly the patterns the six rules were written to catch. Train on simulator traffic and take labels from the rules that fired, and you have built a circle: the model learns to imitate the rules, scores ~0.99, and has learned nothing about fraud. That is why the ML layer replays a **real, externally-labelled** dataset through the existing ingest API and feeds the labels back as chargebacks, so `isConfirmedFraud` comes from ground truth the rules had no hand in creating.
-
-### How good are the rules, actually?
-
-**Real number: PENDING.** It requires either a Kaggle download (Sparkov) or a live `fraud-engine + server + mongo` stack to replay into. `ml/MODEL_CARD.md` and `ml/EXPERIMENTS.md` say so explicitly rather than dressing up a fixture as a finding.
-
-The pipeline that produces it lives in [`ml/`](ml/README.md) — a fourth top-level component:
-
-```bash
-cd ml
-./.venv/bin/python run_baseline.py --replay-csv data/sparkov.csv --kind sparkov \
-    --limit 50000 --base-url http://localhost:3000 --api-key "$PAYGUID_API_KEY"
-```
-
-Which maps each row to PayGuard's ingest shape, replays it chronologically **with real timestamps**, feeds every `is_fraud` row back as a dispute, then verifies that the replayed timestamps match the source, that the replay was chronological, and that no label was derived from `rulesTriggered`.
-
-The shape of the expected result, from the synthetic fixture — **labelled `synthetic-demo`, these are a smoke test and not a result**:
-
-| metric | fixture value |
-|---|---|
-| Precision | 0.039 |
-| Recall | 0.832 |
-| F1 | 0.074 |
-| **PR-AUC (average precision)** | **0.256** |
-| ROC-AUC | 0.880 |
-| Flag rate | 26.7% |
-
-High recall, almost no precision: the rules shout and catch most frauds, but flood the analyst with false alarms, and an ROC-AUC of 0.88 hides that while a PR-AUC of 0.26 does not. The per-rule table is the same story: `NIGHT_OWL_RULE` fires on 25% of all traffic for a precision of **0.010** — real UPI networks have plenty of legitimate late-night activity — while `AMOUNT_THRESHOLD_RULE` fires fourteen times. Those are the numbers Phase 1 replaces with learned weights.
-
-That gap is the project. It is reported honestly rather than tuned away, because a project that reports its own baseline as mediocre and then improves it measurably is dramatically more credible than one that reports 0.99 AUC.
-
-### The discipline that makes the numbers real
-
-- **Labels from outside.** Never `rulesTriggered`. Enforced in code, not just in prose.
-- **No future data.** Every feature uses only rows strictly before the transaction's own timestamp, with a leakage test that deletes all subsequent rows and asserts the feature vector is byte-identical.
-- **PR-AUC is the headline.** At 0.2% positives, accuracy is a lie (predict "clear" for everything and score 99.8%) and ROC-AUC flatters, because its false-positive *rate* is normalised by an enormous true-negative count. Precision reflects the absolute number of false alarms — which is what actually costs analyst hours and customer trust.
-- **Every number carries its source.** `synthetic`, `sparkov`, `paysim`, and the split it came from, in `ml/EXPERIMENTS.md`.
-
----
-
-## The cash-out watch
-
-**Mule accounts** are the #1 laundering pattern in UPI networks: an account receives money from many victims and quickly forwards most of it to a single beneficiary, keeping a small cut. The **mule detector** (`services/muleDetectorService.js`, runs every 45s) automates the watch.
-
-### Ingestion
-
-Person-to-person transfers can now carry a `beneficiaryId` — the *recipient* of the funds, distinct from the payer's identity fields. This is how the system sees money flowing *into* an account, not just out of it. (Deliberately not part of the payer's identity graph: blocking a payer should never auto-block everyone they paid.)
-
-### Detection
-
-Over a 24-hour window, an account is flagged when **all** of these hold:
-
-- It **received** at least ₹10,000 (as a beneficiary).
-- The money came from **≥ 2 distinct senders** (victims, not one friend).
-- It **forwarded** at least 60% of what it took in (the chain — the mule keeps a cut and moves the rest).
-- Money came *in* before it went *out* (receive-then-forward, not a normal payer).
-
-### Rings
-
-Flagged accounts are then clustered into **rings** by shared identity — the same device, IP, fingerprint, or email used by several mules means *one operation, not N mules*. The detector uses union-find over the accounts' transaction identifiers. The result is a `MuleRing`: accounts, total received vs forwarded, senders and beneficiaries, the identifiers that tie them together, and a capped evidence trail of receive/forward legs.
-
-### The one-click block
-
-**`POST /api/mules/:ringId/block`** freezes every account in the ring — and because each block goes through the identity graph, the cascade locks the devices and IPs the ring shared. The ring's status becomes `blocked`, and any future transaction touching a ring member or its infrastructure is rejected with `BLOCK_LIST`. The **`10 MULES`** screen shows each ring with its flow, chain ratio, and evidence — and the block button. The simulator includes a "Mule ring" burst scenario that generates this pattern on demand.
-
----
-
-## The security guard
-
-The ingest surface used to answer anyone. Now it's locked down:
-
-- **Analyst sessions** — every dashboard call carries a **JWT**; the frontend's axios instance attaches it automatically.
-- **Machine ingest** — `POST /api/transactions` and `POST /api/disputes` accept a valid analyst JWT **or** an active **API key** (`x-api-key` header) via the `protectOrApiKey` guard — the credential a real payment switch would use. Keys are stored **bcrypt-hashed** (`ApiKey` model) with last-used tracking; a `demo-ingest` key is seeded on boot and documented.
-- **The black book is private** — `GET /api/blocklist/check/:type/:value` previously revealed blocklist state to anyone; it now requires a JWT.
-- **Rate limiting** — `/api/auth/login` and `/api/auth/register` are limited to **20 requests / 15 min per IP** (brute-force protection), and the whole `/api` surface to **1000 / 15 min** as a flood backstop.
-- **Headers** — `helmet()` sets CSP, `X-Content-Type-Options`, `X-Frame-Options`, Referrer-Policy, HSTS, and the COOP/CORP family on every response.
-
----
-
-## The dining room
-
-The frontend is a **React 19 + Vite** app (`client/`, port 5173) styled as a **Swiss-editorial restaurant** — warm paper, black ink, hairline rules, one vermillion accent reserved for danger. It's light/dark switchable, and the data does the talking. Twelve screens:
-
-| # | Screen | The dining-room view |
+| Rule | Fires when | Score |
 |---|---|---|
-| 01 | **Home** | The landing page: what PayGuard is, the principle ("every transaction gets a decision, nothing gets deleted"), the six capabilities, and one-click demo access. |
-| 02 | **Operations** | The live control room: stat cards, a transaction-volume chart, a status donut, rule-trigger breakdown, and the live feed (latest 30 transactions, with a **CSV export** of the full history). |
-| 03 | **Intel** | Threat campaigns as numbered editorial cards — device sharing, scam-merchant networks, enumeration waves, relay fraud, ATO bursts — with severity, exposure, and actions. |
-| 04 | **Alerts** | The triage queue: resolve, mark false positive, block the user/device, escalate — every decision audited. |
-| 05 | **Simulator** | Fire synthetic attack waves (enumeration, velocity, high-amount, new-device, relay, **mule ring**) and watch live scoring — the workbench for demos and testing. |
-| 06 | **Blocklist** | The black book: locked entities with reasons, plus the immutable audit trail of every block and unblock. |
-| 07 | **Rules** | The recipe book: tune every rule at runtime — enabled state, severity, thresholds — applied to the next transaction. |
-| 08 | **Backtest** | The tasting room: replay real history through a proposed change and see before/after detection rates. |
-| 09 | **Disputes** | The health inspector's desk: ingest chargebacks as ground truth, then read the per-rule detection report. |
-| 10 | **Mules** | The cash-out watch: laundering rings with evidence, chain ratios, and one-click identity-graph block. |
-| 11 | **Merchants** | Merchant risk profiles: MCC category, dispute rate, fraud rate, volume, and a composite risk tier. |
-| 12 | **Graph** | The identity explorer: a force-directed view of the 9-identifier graph, with rich per-entity summaries. |
+| `AMOUNT_THRESHOLD_RULE` | amount > ₹1,00,000 | 65 |
+| `VELOCITY_RULE` | more than 5 transactions in 60 seconds from one user | 60 |
+| `ENUMERATION_ATTACK_RULE` | 8 or more transactions of ≤ ₹50 in 30 minutes (card testing) | 75 |
+| `GEOGRAPHIC_ANOMALY_RULE` | same user in 2 different cities within 120 minutes | 80 |
+| `NEW_DEVICE_RULE` | device never seen before for this user | 55 |
+| `NIGHT_OWL_RULE` | transaction between 00:00 and 05:00 local time | 40 |
 
-The sidebar keeps the whole floor navigable: `01 HOME … 12 GRAPH`, with live status (socket connection + engine health) always in view, and a **Disengage** button for the analyst.
+**Final score = the highest score of the rules that fired** (0 if none fired). Status: 0–39 `clear`, 40–69 `review`, 70–100 `blocked`.
 
----
+Why the maximum and not the average: an earlier version averaged the fired rules' scores, which meant *more* evidence could produce a *lower* score (impossible travel alone = 80 → blocked; impossible travel + night rule = (80+40)/2 = 60 → review). Each rule's score already means "this signal alone is this serious", so the strongest signal decides.
 
-## A dish's journey
+Four rules are stateful: velocity, enumeration, geographic and new-device keep per-user history in in-memory maps. That is simple and fast, and it means the state is lost on restart and not shared between engine instances — a known limitation, listed below.
 
-Here's one transaction, end to end, so the pieces connect.
+**Rule configuration is not hardcoded.** Thresholds, scores and on/off flags live in MongoDB and are edited from the dashboard (`07 Rules` screen). The Node server sends the current config with *every* scoring request, so a change applies to the very next transaction with no restart. The engine itself stores no config.
 
-**The order.** At 2:58 AM, `USER_12` places a ₹2,50,000 order from a device they've never used, in a city they were last seen in two hours ago *in a different city*.
+**Backtest.** `POST /api/fraud/backtest` replays past transactions through a proposed config so an analyst can see the effect of a change before applying it. Each replay uses brand-new rule instances, so replayed history cannot pollute the live rules' state.
 
-1. **Step 1 — black book.** The maître d' checks `USER_12`, the device, and the location identifiers. Clean — not banned.
-2. **Step 2 — the kitchen.** The order is sent to the Java engine with the current recipe. Three inspectors raise their hands:
-   - Portion-size checker: ₹2,50,000 > ₹1,00,000 → **65**.
-   - Impossible-travel checker: two cities within 120 min → **80**.
-   - Unfamiliar-face checker: never-seen device → **55**.
-   
-   Final score: (65 + 80 + 55) / 3 = **66** → `review`. (Had the after-hours checker also been the deciding factor, the average would climb toward blocked — the design makes near-blocked orders reviewable rather than binary.)
-3. **Step 3 — final re-check.** Still clean at commit. The dish is served, scored 66, and an **alert** lands in the triage queue; the event bus pushes it to the dining room instantly.
-4. **The analyst.** The maître d' reviews the alert, decides it's fraud, and **blocks** `USER_12`. The identity graph traces the device, IP, and fingerprint the user shared — every account that ever touched them is frozen too, and the block is written to the immutable audit trail.
-5. **The health inspector.** The cardholder files a chargeback. The analyst ingests it (`09 DISPUTES`) with reason `unauthorized`. The transaction is labelled **confirmed fraud** — and the detection report now credits the impossible-travel checker with one catch, while showing any confirmed-fraud transaction that scored clear as a miss.
-6. **The tasting room.** If the analyst wants to catch this pattern earlier, they open `08 BACKTEST`, propose tightening the impossible-travel window, and replay the last 24 hours of real transactions to see exactly how many more dishes would have been flagged — before changing the recipe for real.
+## The API server (Node.js)
 
-That's the whole system in one order: **detect → alert → decide → block the ring → confirm with ground truth → measure and improve.**
+- **Auth:** analysts log in with email/password (bcrypt) and get a JWT. Machine clients (e.g. a payment switch sending transactions) use an API key in the `x-api-key` header instead; keys are stored bcrypt-hashed. Login/register are rate-limited (20 requests / 15 min per IP); the whole API has a 1000 / 15 min backstop. `helmet` sets security headers.
+- **Identity graph & cascade blocking** (`services/identityGraphService.js`, `services/blocklistService.js`): identifiers that appear together on a transaction are treated as belonging to the same operation. Blocking one identifier runs a breadth-first search (up to 5 rounds) collecting every connected identifier, and blocks them all — one block stops a whole fraud ring.
+- **Campaign detection** (`services/campaignDetector.js`, every 60 s): groups recent alerts into coordinated attacks (e.g. one device shared by many accounts).
+- **Mule detection** (`services/muleDetectorService.js`, every 45 s): flags accounts that in 24 h received ≥ ₹10,000 from ≥ 2 different senders and forwarded ≥ 60% of it; flagged accounts sharing identifiers are clustered into rings with union-find.
+- **Disputes** (`services/disputeService.js`): a chargeback is external proof of fraud. Ingesting one marks the transaction `isConfirmedFraud`, and the detection report measures, per rule, how much of the now-known fraud each rule actually caught at scoring time.
+- **Merchants** (`services/merchantService.js`): a risk profile per merchant (volume, fraud rate, dispute rate, risk tier), updated after each transaction.
+- **Cases** (`services/caseService.js`): alerts get a priority and response deadline (SLA) based on their score; breaches are flagged automatically.
 
----
+## Data model (MongoDB)
 
-## Architecture
+`User` (analysts) · `Transaction` · `FraudAlert` · `BlockList` · `BlockedActivityLog` · `AuditLog` · `Campaign` · `RuleConfig` · `ApiKey` · `Dispute` · `MuleRing` · `Merchant`
 
-```
-                         ┌────────────────────────────┐
-                         │  client/  React + Vite     │
-                         │  the dining room (12 rooms)│
-                         └──────────────┬─────────────┘
-                                        │ REST + Socket.IO (JWT)
-                         ┌──────────────▼─────────────┐
-                         │  server/  Node + Express   │
-                         │  the maître d'             │
-                         │  · 4-step ingest pipeline  │
-                         │  · identity-graph blocking │
-                         │  · campaign + mule detectors│
-                         │  · rule config + backtest  │
-                         │  · disputes, audit trail   │
-                         │  · rate limits, helmet     │
-                         └───┬────────────┬───────────┘
-                             │ /score     │ /backtest
-                         ┌───▼────────────▼───────────┐
-                         │  fraud-engine/  Spring Boot │
-                         │  the kitchen — 6 rules      │
-                         │  stateless: config per      │
-                         │  request, fresh instances   │
-                         │  per backtest run           │
-                         └────────────────────────────┘
-                             MongoDB — the ledger:
-                             User · Transaction · FraudAlert
-                             BlockList · BlockedActivityLog
-                             AuditLog · Campaign · RuleConfig
-                             ApiKey · Dispute · MuleRing
-```
+Nothing is deleted: blocked attempts, resolved alerts and audit entries are kept as records.
 
-**The ledger (data model).** Everything the restaurant knows lives in MongoDB:
+## The dashboard (React)
 
-- `User` — analysts, roles, credentials.
-- `Transaction` — every order ever: payer identity fields, `beneficiaryId`, amount, location, score, status, triggered rules, `scoringEngine` (engine vs fallback), and `isConfirmedFraud` / dispute reason.
-- `FraudAlert` — review-queue items: the transaction, identity context, score, rules, and status (`open` / `resolved` / `false_positive` / `escalated`) with optimistic concurrency.
-- `BlockList` + `BlockedActivityLog` — locked entities and the immutable record of every block cascade.
-- `AuditLog` — every analyst action, written once, never edited.
-- `Campaign` — detected attack campaigns with severity and exposure.
-- `RuleConfig` — the recipe book.
-- `ApiKey` — hashed machine-ingest keys.
-- `Dispute` — the health inspector's reports.
-- `MuleRing` — laundering rings with evidence.
-
----
+12 screens: Home, Operations (live feed + charts), Intel (campaigns), Alerts (triage queue), Simulator (generate attack patterns), Blocklist, Rules, Backtest, Disputes, Mules, Merchants, Graph (identity-graph explorer). All live updates arrive over Socket.IO — the UI never polls.
 
 ## Quick start
 
-Three services, three terminals:
-
 ```bash
-# 1. The kitchen — Java scoring engine (port 8080)
-cd fraud-engine
-./mvnw package
+# 1. Fraud engine (Java, port 8080)
+cd fraud-engine && ./mvnw package -DskipTests
 java -jar target/fraud-engine-0.0.1-SNAPSHOT.jar
 
-# 2. The maître d' — API + real-time (port 3000)
-cd server
-npm install
-PORT=3000 node index.js        # PORT=3000 matters: some shells inject PORT=0
+# 2. API server (Node, port 3000) — needs MongoDB; set MONGO_URI and JWT_SECRET in server/.env
+cd server && npm install && node index.js
 
-# 3. The dining room — frontend (port 5173)
-cd client
-npm install
-npm run dev
+# 3. Dashboard (React, port 5173)
+cd client && npm install && npm run dev
 ```
 
-Open **http://localhost:5173** and sign in with the demo account:
+Or `./start-all.sh` (starts all three; build the engine jar first).
 
-```
-demo@payguard.io  /  payguard-demo
-```
+A demo analyst account is seeded on first boot so the app can be tried immediately. **Change or remove the seeded demo credentials and the seeded demo API key before any real deployment** — they exist only for local demos. Never commit a real `server/.env`.
 
-Or click **USE DEMO** — it's one click. Then:
+## The Python part
 
-1. **Operations** — watch live transactions stream in (or use the simulator).
-2. **Simulator → Mule ring** — generate the laundering pattern, then open **Mules** and block the ring.
-3. **Disputes** — grab a transaction id from the live feed and ingest a chargeback; the detection report populates.
-4. **Backtest** — propose lowering `AMOUNT_THRESHOLD_RULE`'s `minAmount` and see what would have been flagged.
-5. **Rules** — disable a rule and watch the very next transaction stop triggering it.
+`ml/simple_model.py` — one file, standard library only, ~200 lines. It generates labelled sample transactions, converts each to 4 features, trains a logistic regression by gradient descent, and reports accuracy, precision and recall on held-out data. Run it: `python3 ml/simple_model.py`. It is an offline learning experiment; the live system does not call it.
+
+## Known limitations (say these before an interviewer finds them)
+
+- **A `blocked` score is a label, not a declined payment.** Transactions scoring 70+ are saved and create an alert; the only hard rejection (403) is a blocklist hit. In a real payment system, `blocked` would stop the authorisation.
+- **Rule state is in the Java engine's memory.** Restarts clear it, and multiple engine instances would not share it. Production would move it to Redis or a database.
+- **Thresholds are hand-chosen**, not learned from data. `ml/` is the start of measuring how well they actually work.
+- **Rule-config changes are authenticated but not role-gated.** Production should make them admin-only.
+
+## Tests
 
 ```bash
-# 4. The food critic — the ML workspace (not a service; runs on demand)
-cd ml
-python3 -m venv --system-site-packages .venv
-./.venv/bin/pip install -r requirements.txt
-./.venv/bin/python -m pytest                    # 89 tests
-./.venv/bin/python run_baseline.py --synthetic  # fixture, then real data
+cd fraud-engine && ./mvnw test     # Java: rule tests (e.g. NightOwl midnight wrap-around)
+cd server && npm test              # Node: transaction input validation
+python3 ml/simple_model.py         # Python: trains and evaluates, prints metrics
 ```
-
-> **Environment notes.** This sandbox injects `PORT=0`, which shadows `server/.env` — pin it as shown. Mongo credentials live in `server/.env` (gitignored). The machine-ingest demo API key is `pg_live_demo_5f3c2a9e1b7d84a6` (bcrypt-hashed in the `ApiKey` collection). See `replit.md` for the full environment walkthrough.
-
----
-
-## Production notes
-
-PayGuard is built as a demo-grade platform with production-shaped bones. Before it faces real money:
-
-- **Rotate the seeded credentials** — the demo analyst password and the demo API key are well-known; gate rule-config, ring-block, and blocklist mutations behind an admin role.
-- **Persist rule state** — the kitchen's sliding windows (velocity, enumeration, geo, new-device) live in engine memory; persist them for multi-instance deployments and restart resilience.
-- **The rules are heuristics, not models** — they catch known patterns brilliantly, but they average their evidence (see [The food critic](#the-food-critic)) and their thresholds are guesses, not estimates. Per-user behavioral baselines (ML anomaly scoring) are the natural next layer; the tasting room + health inspector are the harness to prove them before they ship, and `ml/` is where the measured replacement is built.
-- **Monitor the fallback** — when the engine is down the system says so and lets dishes through marked fallback; in production, that signal should page someone.
-
----
-
-## Summary
-
-PayGuard is a restaurant where every dish is inspected, the recipe book can be rewritten live, the tasting room proves changes before they ship, and the health inspector's reports come back to the chef. Six inspectors in the kitchen catch the classic fraud signatures; the maître d' orchestrates a four-step pipeline and blocks rings through the identity graph's family tree; the cash-out watch catches mule laundering; the dispute loop measures what actually got caught; the food critic publishes the honest numbers — including the ones the kitchen would rather not see; and the dining room presents it all in a calm, real-time, Swiss-editorial interface — with security at the door and an immutable ledger of everything that ever happened.
-
-**The room knows before you do.**
