@@ -84,7 +84,7 @@ const getTransactionsExport = asyncHandler(async (req, res) => {
     'timestamp', 'transactionId', 'userId', 'merchantId', 'amount', 'currency',
     'city', 'deviceId', 'accountId', 'fingerprint', 'sessionId', 'ipAddress',
     'walletId', 'email', 'phone', 'beneficiaryId', 'fraudScore', 'fraudStatus',
-    'scoringEngine', 'isConfirmedFraud', 'mlScore', 'mlVersion', 'rulesTriggered',
+    'scoringEngine', 'isConfirmedFraud', 'rulesTriggered',
   ];
 
   const rows = transactions.map(t => [
@@ -93,11 +93,7 @@ const getTransactionsExport = asyncHandler(async (req, res) => {
     t.location?.city || '', t.deviceId, t.accountId, t.fingerprint,
     t.sessionId, t.ipAddress, t.walletId, t.email, t.phone, t.beneficiaryId,
     t.fraudScore, t.fraudStatus, t.scoringEngine,
-    // Ground-truth label + the ML shadow score: the two fields the Phase 0
-    // baseline and the Phase 1 shadow analysis are computed from.
     t.isConfirmedFraud === true ? 'true' : 'false',
-    t.mlScore === null || t.mlScore === undefined ? '' : t.mlScore,
-    t.mlVersion || '',
     (t.rulesTriggered || []).map(r => `${r.ruleName}:${r.score}`).join('; '),
   ].map(csvEscape).join(','));
 

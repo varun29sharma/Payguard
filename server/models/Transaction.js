@@ -43,38 +43,6 @@ const transactionSchema = new mongoose.Schema(
     disputeReason: { type: String },
     disputedAt: { type: Date },
 
-    // --- ML shadow layer (Phase 1) ---------------------------------------
-    // The model's opinion is recorded on every transaction while the RULES
-    // keep deciding — a live A/B on real traffic at zero risk. `mlEngine`
-    // mirrors `scoringEngine`: a system that is degraded says so.
-    mlScore: { type: Number, default: null, index: true }, // calibrated P(fraud), 0–1
-    mlVersion: { type: String },
-    mlEngine: {
-      type: String,
-      // 'model'    — scored, mlScore is calibrated
-      // 'skipped'  — model present but this request carried no feature vector
-      // 'fallback' — no model loaded
-      // 'disabled' — feature computation unavailable for this transaction
-      enum: ['model', 'skipped', 'fallback', 'disabled'],
-      default: 'disabled',
-      index: true,
-    },
-    // WHICH ml engine produced the score. `mlEngine` says whether one did;
-    // `mlSource` says which, because two honest implementations exist: the
-    // LightGBM sidecar (Phase 2), and the logistic model embedded in the Java
-    // engine (Phase 1) which is also the fallback when the sidecar is down.
-    mlSource: {
-      type: String,
-      enum: ['sidecar', 'engine', 'none'],
-      default: 'none',
-    },
-    // How long the sidecar took, so the dashboard can show the ML latency
-    // budget being spent rather than asserting it is fine.
-    mlLatencyMs: { type: Number, default: null },
-    // Exact per-feature w_i * x_i terms (top 5 by magnitude). A linear model
-    // gives exact explainability for free, which keeps the product promise
-    // that every decision arrives with reasons.
-    mlContributions: [{ feature: String, value: Number, weight: Number, contribution: Number }],
   },
   { timestamps: true },
 );

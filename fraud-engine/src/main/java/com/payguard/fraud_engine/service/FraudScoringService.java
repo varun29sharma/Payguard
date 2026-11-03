@@ -2,45 +2,54 @@ package com.payguard.fraud_engine.service;
 
 import com.payguard.fraud_engine.model.*;
 import com.payguard.fraud_engine.rules.FraudRule;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.*;
 
+/**
+ * FraudScoringService — the one class that decides a transaction's verdict.
+ *
+ * Purpose in one line: run every enabled rule, take the highest score any
+ * rule produced, and turn that score into a status.
+ *
+ * Why the HIGHEST score, not the average (the old code averaged, and that
+ * was a real bug): if impossible travel alone scores 80 (blocked), adding a
+ * weaker second signal like a night-time rule (40) must never pull the
+ * verdict DOWN to (80+40)/2 = 60 (review). More evidence of fraud should
+ * never make a transaction look safer. Each rule's score was chosen to mean
+ * "this signal alone is this serious", so the strongest signal decides.
+ *
+ * Status bands: 0-39 = clear, 40-69 = review, 70-100 = blocked.
+ */
 @Service
 public class FraudScoringService {
 
+    // Spring injects every @Component that implements FraudRule
+    // (the 6 rule classes in the rules/ package). Adding a new rule means
+    // adding one new class — this service does not change.
     private final List<FraudRule> rules;
-    /**
-     * Null in backtests on purpose: the tasting room exists to evaluate RULE
-     * changes, so replaying the model there would confuse two different
-     * questions. Live scoring gets it injected.
-     */
-    private final LogisticModelScorer modelScorer;
 
-    /** Backtest / unit-test constructor — no ML shadow scoring. */
     public FraudScoringService(List<FraudRule> rules) {
-        this(rules, null);
-    }
-
-    @Autowired
-    public FraudScoringService(List<FraudRule> rules, LogisticModelScorer modelScorer) {
         this.rules = rules;
-        this.modelScorer = modelScorer;
     }
 
+    /**
+     * Score one transaction.
+     * 1. For each rule: look up its config for this request, skip it if disabled.
+     * 2. Collect the rules that fired.
+     * 3. Final score = the highest fired rule's score (0 if none fired).
+     * 4. Convert the score to a status using the bands above.
+     */
     public FraudResult score(TransactionRequest txn) {
         List<FraudResult.RuleResult> triggered = new ArrayList<>();
         for (FraudRule rule : rules) {
             RuleConfig config = resolveConfig(txn, rule.getRuleName());
-            // A rule explicitly disabled in the per-request config is skipped
-            // entirely — its stateful window does not even advance.
-            if (!config.isEnabled()) continue;
+            if (!config.isEnabled()) continue; // disabled rules do not run at all
             rule.evaluate(txn, config).ifPresent(triggered::add);
         }
 
-        int finalScore = triggered.isEmpty() ? 0 : (int) triggered.stream()
+        int finalScore = triggered.stream()
                 .mapToInt(FraudResult.RuleResult::getScore)
-                .average()
+                .max()
                 .orElse(0);
 
         String status;
@@ -48,46 +57,18 @@ public class FraudScoringService {
         else if (finalScore >= 40) status = "review";
         else status = "clear";
 
-        FraudResult result = FraudResult.builder()
+        return FraudResult.builder()
                 .score(finalScore)
                 .status(status)
                 .rulesTriggered(triggered)
                 .build();
-        attachMlShadowScore(result, txn);
-        return result;
     }
 
     /**
-     * Records the model's opinion on every transaction WITHOUT letting it
-     * decide. This is the shadow-mode deployment: a live A/B on real traffic at
-     * zero risk, which is how models are actually shipped at serious companies
-     * and a stronger signal than the model itself.
-     *
-     * Three honest states, never a silent zero:
-     *   "model"    — scored, and `mlProbability` is calibrated
-     *   "skipped"  — model present but this request carried no usable features
-     *   "fallback" — no model loaded; says so the way `scoringEngine` does
-     */
-    private void attachMlShadowScore(FraudResult result, TransactionRequest txn) {
-        if (modelScorer == null || !modelScorer.isAvailable()) {
-            result.setMlEngine("fallback");
-            return;
-        }
-        Optional<MlScore> scored = modelScorer.score(txn.getFeatures());
-        if (scored.isEmpty()) {
-            result.setMlEngine("skipped");
-            return;
-        }
-        MlScore ml = scored.get();
-        result.setMlProbability(ml.getProbability());
-        result.setMlVersion(ml.getVersion());
-        result.setMlEngine(ml.getEngine());
-        result.setMlContributions(ml.getContributions());
-    }
-
-    /**
-     * Finds the per-request config for a rule. Never returns null: absent
-     * config means "run with built-in defaults", which rules can rely on.
+     * Find the config for one rule inside this request. The Node server sends
+     * the current config with every transaction, so a rule can be tuned or
+     * disabled without restarting this engine. If a rule has no config in the
+     * request, it runs enabled with its built-in defaults — never null.
      */
     private RuleConfig resolveConfig(TransactionRequest txn, String ruleName) {
         if (txn.getRules() != null) {

@@ -24,10 +24,7 @@ import java.util.Optional;
  * writes for a night rule — {@code startHour: 22, endHour: 5} — that requires a
  * time that is simultaneously at or after 22:00 and at or before 05:00. No hour
  * satisfies it, so the rule was <em>silently dead</em>: it showed as enabled,
- * green and configured, and never fired. This is exactly the class of defect
- * {@code ml/payguard_ml/rulelogic.py} detects by resolution refutation, and it
- * is what the {@code /api/rules/consistency} endpoint now warns about before an
- * operator can save such a window.
+ * green and configured, and never fired.
  *
  * The fix splits the two cases: when {@code startHour <= endHour} the window is
  * a plain interval; when {@code startHour > endHour} it wraps midnight, and the

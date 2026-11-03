@@ -6,7 +6,6 @@ import com.payguard.fraud_engine.model.TransactionRequest;
 import com.payguard.fraud_engine.rules.FraudRule;
 import com.payguard.fraud_engine.service.BacktestService;
 import com.payguard.fraud_engine.service.FraudScoringService;
-import com.payguard.fraud_engine.service.LogisticModelScorer;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,16 +20,14 @@ public class FraudController {
 
     private final FraudScoringService scoringService;
     private final BacktestService backtestService;
-    private final LogisticModelScorer modelScorer;
     private final List<FraudRule> rules;
     private final long startedAtMillis = ManagementFactory.getRuntimeMXBean().getStartTime();
     private final ObjectMapper mapper = new ObjectMapper();
     // Spring auto-injects the services here
     public FraudController(FraudScoringService scoringService, BacktestService backtestService,
-                           LogisticModelScorer modelScorer, List<FraudRule> rules) {
+                           List<FraudRule> rules) {
         this.scoringService = scoringService;
         this.backtestService = backtestService;
-        this.modelScorer = modelScorer;
         this.rules = rules;
     }
     /*
@@ -114,22 +111,6 @@ public class FraudController {
             }
         }
         return out;
-    }
-
-    /*
-     GET endpoint exposing the ML shadow model's state, so the dashboard can
-     render "model: v1 loaded" vs "model: fallback" next to ENGINE health.
-     URL: http://localhost:8080/api/fraud/model
-     */
-    @GetMapping("/model")
-    public ResponseEntity<Map<String, Object>> model() {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("available", modelScorer.isAvailable());
-        body.put("version", modelScorer.getVersion());
-        body.put("featureCount", modelScorer.getFeatureCount());
-        body.put("reason", modelScorer.getUnavailableReason());
-        body.put("mode", "shadow");
-        return ResponseEntity.ok(body);
     }
 
     @GetMapping("/health")
